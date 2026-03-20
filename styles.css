@@ -2087,19 +2087,29 @@ body.no-shell #app {
    32. COMPATIBILIDADE app.js (BEM aliases)
    ============================================= */
 
+/* Layout com sidebar + header quando autenticado (Aplicando grid obrigatório) */
+body:not(.no-shell) {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 64px 1fr;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-base);
+}
+
 /* Sidebar — app.js usa notação BEM com __ */
 .sidebar {
-  position: fixed;
+  grid-row: 1 / -1;
+  grid-column: 1;
+  overflow-y: auto;
+  position: sticky;
   top: 0;
-  left: 0;
-  width: var(--sidebar-width);
   height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-subtle);
   z-index: var(--z-sidebar);
-  overflow: hidden;
   transition: width var(--transition-normal);
 }
 
@@ -2176,9 +2186,11 @@ body.no-shell #app {
 
 /* Top Header — app.js structure */
 .top-header {
+  grid-column: 2;
+  grid-row: 1;
   position: sticky;
   top: 0;
-  z-index: var(--z-header);
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2186,7 +2198,6 @@ body.no-shell #app {
   padding: 0 var(--content-padding);
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
-  grid-area: header;
 }
 
 .top-header__title {
@@ -2231,16 +2242,12 @@ body.no-shell #app {
   color: var(--danger);
 }
 
-/* Layout com sidebar + header quando autenticado */
 body:not(.no-shell) #app {
-  margin-left: var(--sidebar-width);
-  padding: var(--content-padding);
-  min-height: calc(100vh - var(--header-height));
+  grid-column: 2;
+  grid-row: 2;
   overflow-y: auto;
-}
-
-body:not(.no-shell) #top-header {
-  margin-left: var(--sidebar-width);
+  height: calc(100vh - 64px);
+  padding: 32px;
 }
 
 /* Toast compat — app.js usa toast--tipo e toast--visible */
@@ -2343,6 +2350,8 @@ body:not(.no-shell) #top-header {
 
 .dashboard-side {
   min-width: 0;
+  position: sticky;
+  top: 24px;
 }
 
 /* KPI card perigo */
@@ -2355,7 +2364,13 @@ body:not(.no-shell) #top-header {
   border-color: rgba(239, 68, 68, 0.5);
 }
 
-/* Header de coluna ordenável */
+/* Header de coluna ordenável e cabeçalho fixo */
+.data-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
 .data-table th.sortable {
   cursor: pointer;
   user-select: none;
@@ -2914,4 +2929,214 @@ body:not(.no-shell) #top-header {
   height: 18px;
   accent-color: var(--green-500);
   cursor: pointer;
+}
+
+/* =============================================
+   39. TELA DE LOGIN
+   ============================================= */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #0d1f0f;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  box-shadow: var(--shadow-xl);
+}
+
+.login-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.login-logo-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--green-500), var(--green-600));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.login-headline {
+  margin-bottom: 32px;
+}
+
+.login-headline-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.login-headline-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.login-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--danger);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.login-success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: var(--success);
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.login-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.login-input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--text-muted);
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
+.login-input-with-icon {
+  padding-left: 42px !important;
+}
+
+.login-input-password {
+  padding-right: 42px !important;
+}
+
+.login-toggle-senha {
+  position: absolute;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.login-toggle-senha:hover {
+  color: var(--text-primary);
+}
+
+.login-eye-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.login-forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -8px;
+  margin-bottom: 24px;
+}
+
+.login-forgot-link {
+  font-size: 13px;
+  color: var(--green-400);
+  font-weight: 500;
+}
+
+.login-forgot-link:hover {
+  color: var(--green-500);
+  text-decoration: underline;
+}
+
+.login-btn {
+  width: 100%;
+}
+
+.login-footer {
+  margin-top: 32px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.login-footer a {
+  font-weight: 500;
+}
+
+/* Modais da tela de login */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+}
+
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-normal);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 460px;
+  padding: 24px;
+  box-shadow: var(--shadow-xl);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--transition-fast);
+}
+
+.modal-close:hover {
+  color: var(--danger);
 }

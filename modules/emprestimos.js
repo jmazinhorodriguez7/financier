@@ -119,12 +119,12 @@ const Emprestimos = {
      */
     async criar(dados) {
         try {
-            const userId = Auth.getUsuarioId();
-            if (!userId) throw new Error('Usuário não autenticado');
+            const { data: { user } } = await window.FinancierDB.auth.getUser();
+            if (!user) throw new Error('Usuário não autenticado');
 
             const { data, error } = await window.FinancierDB
                 .from('emprestimos')
-                .insert([{ ...dados, user_id: userId }])
+                .insert([{ ...dados, user_id: user.id }])
                 .select()
                 .single();
 

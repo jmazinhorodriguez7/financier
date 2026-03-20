@@ -46,8 +46,8 @@ const Pagamentos = {
      */
     async registrar(dados) {
         try {
-            const userId = Auth.getUsuarioId();
-            if (!userId) throw new Error('Usuário não autenticado');
+            const { data: { user } } = await window.FinancierDB.auth.getUser();
+            if (!user) throw new Error('Usuário não autenticado');
 
             // Busca empréstimo
             const emprestimo = await Emprestimos.buscarPorId(dados.emprestimo_id);

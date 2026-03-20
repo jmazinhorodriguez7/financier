@@ -104,9 +104,9 @@ const TelaDashboard = {
         <div class="content-wrapper">
             <!-- KPIs -->
             <div class="kpi-grid">
-                ${this._renderKPI('Total Emprestado', formatarReais(d.totalEmprestado), 'dollar-sign', 'green')}
+                ${this._renderKPI('Total em Carteira', formatarReais(d.totalEmprestado), 'dollar-sign', 'green')}
                 ${this._renderKPI('Recebido no Mês', formatarReais(d.recebidoMes), 'trending-up', 'blue')}
-                ${this._renderKPI('Empréstimos Ativos', d.ativos.toString(), 'file-text', 'yellow')}
+                ${this._renderKPI('Ativos', d.ativos.toString(), 'file-text', 'yellow')}
                 ${this._renderKPI('Em Atraso', d.emAtraso.toString(), 'alert-triangle', 'red', d.emAtraso > 0)}
             </div>
 
