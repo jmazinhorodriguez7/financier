@@ -1,8 +1,0 @@
-feat: versão inicial do Financier
-
-- Sistema de gestão de empréstimos pessoais
-- Cálculo de juros simples e sistema Price
-- Integração com Supabase
-- Sistema de alertas automáticos
-- Importação de PDF com PDF.js
-- Design baseado no Google Stitch
