@@ -5,6 +5,9 @@
 .env.*.local
 env.js
 
+# Vercel
+.vercel
+
 # Dependências
 node_modules/
 npm-debug.log*

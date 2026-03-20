@@ -5,6 +5,7 @@
   "scripts": {
     "start": "npx serve .",
     "dev": "npx serve . --listen 3000",
+    "build": "node scripts/generate-env.js",
     "test": "node tests/calculos.test.js"
   },
   "keywords": ["financeiro", "emprestimos", "gestao"],
