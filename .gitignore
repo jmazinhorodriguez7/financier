@@ -1,0 +1,32 @@
+# Variáveis de ambiente e segredos
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Dependências
+node_modules/
+npm-debug.log*
+
+# Build e cache
+dist/
+build/
+.cache/
+.parcel-cache/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Logs
+logs/
+*.log

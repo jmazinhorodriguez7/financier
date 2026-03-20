@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Testes Unitários — Financier</title>
+    <style>
+        body { font-family: Inter, sans-serif; background: #0d1f0f; color: white; padding: 20px; }
+        .test-case { margin-bottom: 10px; padding: 10px; border-radius: 8px; background: #1a2e1c; }
+        .pass { border-left: 5px solid #22c55e; }
+        .fail { border-left: 5px solid #ef4444; }
+        .fail-msg { color: #ef4444; font-size: 0.9em; margin-top: 5px; }
+        h1 { color: #22c55e; }
+    </style>
+</head>
+<body>
+    <h1>Financier — Suite de Testes</h1>
+    <div id="results">Executando testes...</div>
+
+    <!-- SUT (System Under Test) -->
+    <script src="../modules/calculos.js"></script>
+
+    <!-- Test Script -->
+    <script src="calculos.test.js"></script>
+</body>
+</html>

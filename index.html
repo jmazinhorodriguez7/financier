@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Financier — Sistema de gestão de empréstimos pessoais com juros mensais">
+    <title>Financier — Gestão de Empréstimos</title>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+
+    <!-- App Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="no-shell">
+    <!-- Sidebar (injected by app.js after auth) -->
+    <nav id="sidebar"></nav>
+
+    <!-- Top Header (injected by app.js after auth) -->
+    <header id="top-header"></header>
+
+    <!-- Main Content -->
+    <main id="app"></main>
+
+    <!-- Core -->
+    <script src="supabase-client.js"></script>
+
+    <!-- Utils -->
+    <script src="utils/formatadores.js"></script>
+    <script src="utils/validadores.js"></script>
+    <script src="utils/datas.js"></script>
+
+    <!-- Modules -->
+    <script src="modules/calculos.js"></script>
+    <script src="modules/auth.js"></script>
+    <script src="modules/devedores.js"></script>
+    <script src="modules/emprestimos.js"></script>
+    <script src="modules/pagamentos.js"></script>
+    <script src="modules/alertas.js?v=6"></script>
+    <script src="modules/pdf-extrator.js?v=2"></script>
+
+    <!-- Screens -->
+    <script src="screens/tela-login.js"></script>
+    <script src="screens/tela-dashboard.js"></script>
+    <script src="screens/tela-devedores.js"></script>
+    <script src="screens/tela-perfil-devedor.js"></script>
+    <script src="screens/tela-novo-emprestimo.js"></script>
+    <script src="screens/tela-detalhe-emprestimo.js?v=2"></script>
+    <script src="screens/tela-avisos.js?v=4"></script>
+    <script src="screens/tela-pdf.js?v=2"></script>
+
+    <!-- App Router (must be last) -->
+    <script src="app.js?v=2"></script>
+</body>
+</html>

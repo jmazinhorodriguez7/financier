@@ -1,0 +1,13 @@
+{
+  "name": "financier",
+  "version": "1.0.0",
+  "description": "Sistema web de gestão de empréstimos pessoais",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve . --listen 3000",
+    "test": "node tests/calculos.test.js"
+  },
+  "keywords": ["financeiro", "emprestimos", "gestao"],
+  "author": "João",
+  "license": "MIT"
+}
