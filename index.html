@@ -17,9 +17,11 @@
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <!-- PDF.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <!-- jsPDF para geração do PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <!-- jsPDF AutoTable para tabelas formatadas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
     <!-- App Styles -->
     <link rel="stylesheet" href="styles.css">
@@ -50,7 +52,7 @@
     <script src="modules/emprestimos.js"></script>
     <script src="modules/pagamentos.js"></script>
     <script src="modules/alertas.js?v=6"></script>
-    <script src="modules/pdf-extrator.js?v=2"></script>
+    <script src="modules/pdf-exportador.js"></script>
 
     <!-- Screens -->
     <script src="screens/tela-login.js"></script>
@@ -60,7 +62,7 @@
     <script src="screens/tela-novo-emprestimo.js"></script>
     <script src="screens/tela-detalhe-emprestimo.js?v=2"></script>
     <script src="screens/tela-avisos.js?v=4"></script>
-    <script src="screens/tela-pdf.js?v=2"></script>
+    <script src="screens/tela-exportar-pdf.js"></script>
 
     <!-- App Router (must be last) -->
     <script src="app.js?v=2"></script>

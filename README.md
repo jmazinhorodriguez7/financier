@@ -8,12 +8,13 @@ cálculo automático de juros mensais.
 - Registro e histórico de pagamentos com extrato completo
 - Sistema de alertas automáticos por vencimento
 - Importação de registros via PDF
+- Exportação de relatórios em PDF com filtro por período
 - Autenticação segura por email e senha
 
 ## Tecnologias
 - HTML, CSS e JavaScript puro
 - Supabase (banco de dados e autenticação)
-- PDF.js para extração de arquivos PDF
+- jsPDF + AutoTable para exportação de PDF
 - Google Stitch para design das telas
 
 ## Configuração local

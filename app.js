@@ -122,9 +122,9 @@ const App = {
                 this.atualizarHeaderTitulo('Avisos');
                 TelaAvisos.render();
                 break;
-            case 'pdf':
-                this.atualizarHeaderTitulo('Importar PDF');
-                TelaPdf.render();
+            case 'exportar':
+                this.atualizarHeaderTitulo('Exportar Relatório');
+                TelaExportarPdf.render();
                 break;
             case 'configuracoes':
                 this.atualizarHeaderTitulo('Configurações');
@@ -153,7 +153,7 @@ const App = {
             'novo-emprestimo': 'emprestimos', 'emprestimo': 'emprestimos',
             'pagamento': 'pagamentos',
             'avisos': 'avisos',
-            'pdf': 'pdf',
+            'exportar': 'exportar',
             'configuracoes': 'configuracoes'
         };
         const ativa = mapa[rota] || 'dashboard';
@@ -201,9 +201,9 @@ const App = {
                     <span style="flex:1;">Avisos</span>
                     <span class="sidebar__badge" id="sidebar-avisos-badge" style="display:none;">0</span>
                 </a>
-                <a href="#/pdf" class="sidebar__item" data-route="pdf">
-                    <i data-lucide="upload"></i>
-                    <span>Importar PDF</span>
+                <a href="#/exportar" class="sidebar__item" data-route="exportar">
+                    <i data-lucide="file-down"></i>
+                    <span>Exportar Relatório</span>
                 </a>
                 <a href="#/configuracoes" class="sidebar__item" data-route="configuracoes">
                     <i data-lucide="settings"></i>
