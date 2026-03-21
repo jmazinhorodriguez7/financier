@@ -8,7 +8,7 @@ const TelaExportarPdf = {
         const app = document.getElementById('conteudo-principal');
 
         // Buscar devedores para o dropdown
-        const devedores = await Devedores.listarTodos();
+        const devedores = await Devedores.listar();
 
         app.innerHTML = `
             <div class="page-container" style="max-width:900px;margin:0 auto;padding:32px 24px;">
