@@ -91,6 +91,8 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -100,8 +102,8 @@ body {
   line-height: 1.6;
   color: var(--text-primary);
   background-color: var(--bg-base);
+  height: 100%;
   overflow: hidden;
-  min-height: 100vh;
 }
 
 a {
@@ -217,18 +219,15 @@ ul, ol { list-style: none; }
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   grid-template-rows: var(--header-height) 1fr;
-  grid-template-areas:
-    "sidebar header"
-    "sidebar content";
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   width: 100%;
 }
 
 /* =============================================
    5. HEADER
    ============================================= */
-.app-header {
-  grid-area: header;
+.header {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
@@ -289,9 +288,9 @@ ul, ol { list-style: none; }
 /* =============================================
    6. SIDEBAR
    ============================================= */
-.app-sidebar {
-  grid-area: sidebar;
-  position: fixed;
+.sidebar {
+  grid-row: 1 / -1;
+  position: sticky;
   top: 0;
   left: 0;
   width: var(--sidebar-width);
@@ -301,7 +300,8 @@ ul, ol { list-style: none; }
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-subtle);
   z-index: var(--z-sidebar);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: width var(--transition-normal);
 }
 
@@ -489,8 +489,7 @@ ul, ol { list-style: none; }
 /* =============================================
    7. CONTEÚDO PRINCIPAL
    ============================================= */
-.app-content {
-  grid-area: content;
+.content {
   overflow-y: auto;
   overflow-x: hidden;
   padding: var(--content-padding);
