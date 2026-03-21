@@ -7,7 +7,7 @@ const TelaDevedores = {
     _filtro: '',
 
     async render() {
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         app.innerHTML = this._renderSkeleton();
 
         try {
@@ -42,7 +42,7 @@ const TelaDevedores = {
     },
 
     _renderConteudo() {
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         const filtrados = this._devedores.filter(d =>
             d.nome.toLowerCase().includes(this._filtro.toLowerCase()) ||
             (d.contato && d.contato.toLowerCase().includes(this._filtro.toLowerCase()))

@@ -27,14 +27,16 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="no-shell">
-    <!-- Sidebar (injected by app.js after auth) -->
-    <nav id="sidebar"></nav>
+    <div class="app-layout">
+        <!-- Sidebar (injected by app.js after auth) -->
+        <aside class="sidebar" id="sidebar"></aside>
 
-    <!-- Top Header (injected by app.js after auth) -->
-    <header id="top-header"></header>
+        <!-- Top Header (injected by app.js after auth) -->
+        <header class="header" id="top-header"></header>
 
-    <!-- Main Content -->
-    <main id="app"></main>
+        <!-- Main Content (only element that scrolls) -->
+        <main class="content" id="conteudo-principal"></main>
+    </div>
 
     <!-- Core -->
     <script src="env.js"></script>

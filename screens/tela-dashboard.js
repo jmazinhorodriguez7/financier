@@ -10,7 +10,7 @@ const TelaDashboard = {
      * Renderiza o dashboard completo
      */
     async render() {
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         app.innerHTML = this._renderSkeleton();
 
         // Carrega dados em paralelo
@@ -361,7 +361,7 @@ const TelaDashboard = {
         }
 
         // Re-renderiza somente a tabela
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         app.innerHTML = this._renderDashboard();
         if (window.lucide) window.lucide.createIcons();
     },

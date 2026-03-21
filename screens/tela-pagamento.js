@@ -8,7 +8,7 @@ const TelaPagamento = {
 
     async render(id) {
         this._emprestimoId = id;
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
 
         app.innerHTML = `
         <div class="content-wrapper" style="max-width:800px;">

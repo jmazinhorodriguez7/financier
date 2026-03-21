@@ -7,7 +7,7 @@ const TelaAvisos = {
     _filtroAtual: 'todos', // 'todos', 'atrasados', 'proximos', 'recentes'
 
     async render() {
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         
         app.innerHTML = `
         <div class="content-wrapper">

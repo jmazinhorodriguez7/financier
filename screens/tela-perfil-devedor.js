@@ -8,7 +8,7 @@ const TelaPerfilDevedor = {
 
     async render(id) {
         this._devedorId = id;
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         app.innerHTML = `
         <div class="content-wrapper">
             <div class="kpi-grid" style="grid-template-columns:1fr;">

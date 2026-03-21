@@ -9,7 +9,7 @@ const TelaNovoEmprestimo = {
     async render(devedorId) {
         this._devedorId = devedorId || null;
         this._modalidade = 'livre';
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
 
         // Carrega lista de devedores para o select
         const devedores = await Devedores.listar();

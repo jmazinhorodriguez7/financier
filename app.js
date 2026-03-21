@@ -47,15 +47,11 @@ const App = {
             body.classList.remove('no-shell');
             sidebar.innerHTML = this.renderSidebar();
             topHeader.innerHTML = this.renderTopHeaderContent();
-            sidebar.className = 'sidebar';
-            topHeader.className = 'top-header';
             if (window.lucide) window.lucide.createIcons();
         } else {
             body.classList.add('no-shell');
             sidebar.innerHTML = '';
             topHeader.innerHTML = '';
-            sidebar.className = '';
-            topHeader.className = '';
         }
     },
 

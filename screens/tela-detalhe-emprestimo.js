@@ -8,7 +8,7 @@ const TelaDetalheEmprestimo = {
 
     async render(id) {
         this._emprestimoId = id;
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         
         app.innerHTML = `
         <div class="content-wrapper">

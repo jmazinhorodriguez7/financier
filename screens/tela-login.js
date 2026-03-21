@@ -8,7 +8,7 @@ const TelaLogin = {
      * Renderiza a tela de login no #app
      */
     render() {
-        const app = document.getElementById('app');
+        const app = document.getElementById('conteudo-principal');
         app.innerHTML = `
         <div class="login-page" id="login-page">
             <div class="login-card">
