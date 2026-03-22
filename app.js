@@ -273,3 +273,78 @@ const App = {
 document.addEventListener('DOMContentLoaded', () => App.init());
 
 window.App = App;
+
+// =========================================================
+// CAMADA 1.2 — Timeout automático por inatividade
+// =========================================================
+const TIMEOUT_INATIVIDADE = 10 * 60 * 1000;
+let timerInatividade;
+
+function resetarTimer() {
+  clearTimeout(timerInatividade);
+  timerInatividade = setTimeout(async () => {
+    if (window.Auth && Auth.isAutenticado()) {
+      await App.handleLogout();
+      sessionStorage.clear();
+      localStorage.clear();
+      window.location.replace('/');
+    }
+  }, TIMEOUT_INATIVIDADE);
+}
+
+['click','keydown','mousemove','scroll','touchstart'].forEach(evento => {
+  document.addEventListener(evento, resetarTimer, { passive: true });
+});
+resetarTimer();
+
+// =========================================================
+// CAMADA 3.3 — Bloquear ferramentas de inspeção
+// =========================================================
+(function() {
+  if (window.location.hostname === 'localhost') return;
+
+  const threshold = 160;
+  function detectarDevTools() {
+    const largura = window.outerWidth - window.innerWidth;
+    const altura = window.outerHeight - window.innerHeight;
+    if (largura > threshold || altura > threshold) {
+      document.body.innerHTML = 
+        '<div style="display:flex;align-items:center;' +
+        'justify-content:center;height:100vh;' +
+        'background:#060f07;color:#ef4444;font-size:18px;' +
+        'font-family:sans-serif;">Sessão encerrada.</div>';
+      if (window.FinancierDB) window.FinancierDB.auth.signOut();
+    }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (
+      e.key === 'F12' ||
+      (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key)) ||
+      (e.ctrlKey && e.key === 'U')
+    ) {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    return false;
+  });
+
+  setInterval(detectarDevTools, 1000);
+})();
+
+// =========================================================
+// CAMADA 3.4 — Limpar dados sensíveis da memória ao sair
+// =========================================================
+window.addEventListener('beforeunload', () => {
+  sessionStorage.clear();
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    sessionStorage.removeItem('_sess_token');
+  }
+});

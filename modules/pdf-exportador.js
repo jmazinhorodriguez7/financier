@@ -307,6 +307,8 @@ const PdfExportador = {
             new Date().toISOString().split('T')[0]
         }.pdf`;
         doc.save(nomeArquivo);
+
+        if (window.registrarAcao) window.registrarAcao('EXPORTAR_PDF');
     }
 };
 

@@ -93,6 +93,7 @@ const Pagamentos = {
                 status: novoStatus
             });
 
+            if (window.registrarAcao) window.registrarAcao('PAGAMENTO_REGISTRADO');
             return novoPagamento;
         } catch (err) {
             console.error('Erro ao registrar pagamento:', err);

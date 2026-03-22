@@ -129,6 +129,7 @@ const Emprestimos = {
                 .single();
 
             if (error) throw error;
+            if (window.registrarAcao) window.registrarAcao('NOVO_EMPRESTIMO');
             return data;
         } catch (err) {
             console.error('Erro ao criar empréstimo:', err);

@@ -27,3 +27,19 @@ const supabaseClient = window.supabase.createClient(
 
 // Expõe globalmente para todos os módulos
 window.FinancierDB = supabaseClient;
+
+// ============================================================
+// Segurança — Verificação de domínio
+// ============================================================
+const DOMINIOS_PERMITIDOS = [
+  'localhost',
+  '127.0.0.1',
+  'financier.vercel.app', 
+  // Add other valid domains here for Vercel
+];
+
+const dominioAtual = window.location.hostname;
+if (!DOMINIOS_PERMITIDOS.includes(dominioAtual) && !dominioAtual.endsWith('.vercel.app')) {
+  document.body.innerHTML = '';
+  throw new Error('Domínio não autorizado.');
+}
