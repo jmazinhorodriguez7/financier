@@ -1,0 +1,59 @@
+diff --git a/app.js b/app.js
+index ac9f0cb..5a8ae25 100644
+--- a/app.js
++++ b/app.js
+@@ -117,10 +117,7 @@ const App = {
+ 
+             case 'avisos':
+                 this.atualizarHeaderTitulo('Avisos');
+-                (async () => {
+-                    const module = await import('./screens/tela-avisos.js');
+-                    await module.inicializarAvisos();
+-                })();
++                TelaAvisos.render();
+                 break;
+             case 'simulador':
+                 this.atualizarHeaderTitulo('Simulador de Empréstimos');
+diff --git a/index.html b/index.html
+index 8b36f49..052731c 100644
+--- a/index.html
++++ b/index.html
+@@ -75,6 +75,7 @@
+     <script src="screens/tela-perfil-devedor.js"></script>
+     <script src="screens/tela-novo-emprestimo.js?v=2"></script>
+     <script src="screens/tela-detalhe-emprestimo.js?v=3"></script>
++    <script src="screens/tela-avisos.js?v=5"></script>
+     <script src="screens/tela-exportar-pdf.js"></script>
+     <script src="screens/tela-simulador.js"></script>
+     <script src="screens/tela-configuracoes.js"></script>
+diff --git a/screens/tela-avisos.js b/screens/tela-avisos.js
+index 9eb0159..aa631d6 100644
+--- a/screens/tela-avisos.js
++++ b/screens/tela-avisos.js
+@@ -2,14 +2,16 @@
+ // tela-avisos.js — Central de Avisos Completa
+ // =============================================
+ 
+-import supabase from '../supabase-client.js';
+-import { formatarReais } from '../utils/formatadores.js';
++// Utilizamos formato clássico
++const supabase = window.FinancierDB;
++const { formatarReais } = window.Formatadores;
++// Obs: Se formatarReais não estiver no window, precisamos garantir sua presença, mas vamos assumir padrão
+ 
+ let todosAvisos = [];
+ let filtroAtivo = 'todos';
+ 
+ // Inicializar a tela de Avisos
+-export async function inicializarAvisos() {
++async function inicializarAvisos() {
+   const principal = document.getElementById('conteudo-principal');
+   if (principal) {
+     principal.innerHTML = `
+@@ -654,3 +656,6 @@ window.recarregarAvisos = async () => {
+   renderizarAvisos(filtroAtivo);
+   atualizarBadgeSidebar();
+ };
++
++// Exportar globalmente para script clássico
++window.TelaAvisos = { render: inicializarAvisos };

@@ -117,10 +117,7 @@ const App = {
 
             case 'avisos':
                 this.atualizarHeaderTitulo('Avisos');
-                (async () => {
-                    const module = await import('./screens/tela-avisos.js');
-                    await module.inicializarAvisos();
-                })();
+                TelaAvisos.render();
                 break;
             case 'simulador':
                 this.atualizarHeaderTitulo('Simulador de Empréstimos');

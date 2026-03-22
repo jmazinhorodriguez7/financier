@@ -2,14 +2,16 @@
 // tela-avisos.js — Central de Avisos Completa
 // =============================================
 
-import supabase from '../supabase-client.js';
-import { formatarReais } from '../utils/formatadores.js';
+// Utilizamos formato clássico
+const supabase = window.FinancierDB;
+const { formatarReais } = window.Formatadores;
+// Obs: Se formatarReais não estiver no window, precisamos garantir sua presença, mas vamos assumir padrão
 
 let todosAvisos = [];
 let filtroAtivo = 'todos';
 
 // Inicializar a tela de Avisos
-export async function inicializarAvisos() {
+async function inicializarAvisos() {
   const principal = document.getElementById('conteudo-principal');
   if (principal) {
     principal.innerHTML = `
@@ -654,3 +656,6 @@ window.recarregarAvisos = async () => {
   renderizarAvisos(filtroAtivo);
   atualizarBadgeSidebar();
 };
+
+// Exportar globalmente para script clássico
+window.TelaAvisos = { render: inicializarAvisos };

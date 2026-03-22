@@ -1,0 +1,8 @@
+fix: corrige roteamento da tela de Avisos
+
+- Adiciona case 'avisos' no switch do router
+- Corrige import e declaração de inicializarAvisos no contexto do app
+- Ajusta injeção de componente e roteador legado
+- Reescreve tela de avisos com geração dinâmica
+- Avisos gerados diretamente dos empréstimos ativos
+- Não depende de tabela alertas pré-populada
