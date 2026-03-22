@@ -1,0 +1,11 @@
+fix: reescreve módulo de Avisos completo
+
+- Gera alertas dinamicamente dos dados reais do banco
+- Não depende de tabela alertas pré-populada
+- 9 tipos de aviso: atrasado, crítico, vencimento, prevenção, parcela do mês, recente, quase quitado, saldo cresceu, resumo mensal
+- Filtros: Todos, Atrasados, Próximos, Recentes, Atenção
+- Botão WhatsApp em cada card com mensagem automática
+- Botão Ver Empréstimo navega para o detalhe
+- Badge na sidebar com contagem de críticos
+- Skeleton loading durante carregamento
+- Estado vazio com mensagem contextual por filtro
