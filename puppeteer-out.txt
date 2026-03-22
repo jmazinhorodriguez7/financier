@@ -1,0 +1,9 @@
+Navigating to file://C:\financier-app\index.html#/login...
+[NETWORK ERROR] https://unpkg.com/lucide@latest/dist/umd/lucide.min.js - 302
+[BROWSER ERROR] Dom├¡nio n├úo autorizado.
+Test page loaded.
+[BROWSER ERROR] Cannot set properties of null (setting 'innerHTML')
+[BROWSER ERROR] Cannot set properties of null (setting 'innerHTML')
+Object.atualizarShell (file:///C:/financier-app/app.js?v=3:54:31)
+file:///C:/financier-app/app.js?v=3:19:18
+DOM snapshot length: 2649

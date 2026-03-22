@@ -60,15 +60,17 @@ const Pagamentos = {
 
             let result;
             if (emprestimo.modalidade === 'price') {
-                const pmt = calcularPMT(Number(emprestimo.valor_principal), taxa, emprestimo.prazo_meses);
-                result = calcularParcelaPrice(saldo, taxa, pmt);
+                const pmt = window.Calculos.calcularPMT(Number(emprestimo.valor_principal), taxa, emprestimo.prazo_meses);
+                result = window.Calculos.calcularParcelaPrice(saldo, taxa, pmt);
+            } else if (emprestimo.modalidade === 'sac') {
+                result = window.Calculos.calcularPagamentoSAC(saldo, taxa, valorPago, emprestimo.prazo_restante || emprestimo.prazo_meses);
             } else {
-                result = calcularPagamentoLivre(saldo, taxa, valorPago);
+                result = window.Calculos.calcularPagamentoLivre(saldo, taxa, valorPago);
             }
 
             // Insere pagamento
             const pagamentoData = {
-                user_id: userId,
+                user_id: user.id,
                 emprestimo_id: dados.emprestimo_id,
                 data_pagamento: dados.data_pagamento,
                 valor_pago: valorPago,

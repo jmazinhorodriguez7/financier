@@ -20,7 +20,7 @@ const path = require('path');
         }
     });
 
-    const testPath = 'file://' + path.resolve(__dirname, 'tests/index.html');
+    const testPath = 'https://financier-two-lyart.vercel.app/#/login';
     console.log(`Navigating to ${testPath}...`);
     try {
         await page.goto(testPath, { waitUntil: 'load', timeout: 30000 });
@@ -31,12 +31,7 @@ const path = require('path');
         
         const html = await page.content();
         console.log('DOM snapshot length:', html.length);
-        
-        const results = await page.$eval('#results', el => el.innerText);
-        console.log('Test Results:\n', results);
-
     } catch (err) {
-        console.error('Puppeteer navigation failed:', err);
     }
     
     await browser.close();
