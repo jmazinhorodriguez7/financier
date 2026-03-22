@@ -35,6 +35,7 @@ const DOMINIOS_PERMITIDOS = [
   'localhost',
   '127.0.0.1',
   'financier.vercel.app', 
+  'financier-two-lyart.vercel.app',
   // Add other valid domains here for Vercel
 ];
 

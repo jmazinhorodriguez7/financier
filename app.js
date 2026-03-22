@@ -1,3 +1,4 @@
+// Financier App - v1.1.0 (SAC & Edit)
 /**
  * Financier — Core Application Logic (Desktop Web)
  * SPA Router, Sidebar Navigation, and Global State Management
