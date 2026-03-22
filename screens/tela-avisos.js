@@ -94,13 +94,8 @@ function renderizarEsqueleto() {
 }
 
 // MOTOR DE GERAÇÃO DE AVISOS
-async function gerarTodosOsAvisos() {
-  todosAvisos = [];
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
-
-  // Buscar todos os empréstimos ativos com dados completos
+async function buscarEmprestimosParaAvisos() {
+  // Primeiro testar sem filtro de user_id (RLS cuida do isolamento)
   const { data: emprestimos, error } = await supabase
     .from('emprestimos')
     .select(`
@@ -126,536 +121,279 @@ async function gerarTodosOsAvisos() {
         created_at
       )
     `)
-    .eq('user_id', user.id)
     .eq('status', 'ativo')
     .order('created_at', { ascending: false });
 
-  if (error || !emprestimos) {
-    console.error('Erro ao buscar empréstimos:', error);
+  if (error) {
+    console.error('Erro na busca de empréstimos:', error);
+    throw new Error(
+      'Erro ao buscar empréstimos: ' + error.message
+    );
+  }
+
+  console.log(
+    'Empréstimos encontrados para Avisos:',
+    emprestimos?.length
+  );
+
+  return emprestimos || [];
+}
+
+// Inicializar a tela de Avisos
+async function inicializarAvisos() {
+  const container = document.getElementById('conteudo-principal');
+
+  if (!container) {
+    console.error('Container #conteudo-principal não encontrado');
     return;
   }
 
+  container.innerHTML = `
+    <div style="padding:32px">
+      <h1 style="color:var(--text-primary); margin-bottom:8px">Central de Avisos</h1>
+      <p style="color:var(--text-secondary); margin-bottom:24px">
+        Acompanhe vencimentos, atrasos e movimentações importantes.
+      </p>
+      
+      <div id="lista-avisos"></div>
+    </div>
+  `;
+
+  try {
+    const emprestimos = await buscarEmprestimosParaAvisos();
+
+    // LOG TEMPORÁRIO — remover após confirmar funcionamento
+    console.log('=== DEBUG AVISOS ===');
+    console.log('Total de empréstimos:', emprestimos.length);
+    emprestimos.forEach(e => {
+      console.log(
+        e.devedores?.nome,
+        '| Saldo:', e.saldo_devedor,
+        '| Pagamentos:', e.pagamentos?.length
+      );
+    });
+    console.log('===================');
+
+    if (emprestimos.length === 0) {
+      document.getElementById('lista-avisos').innerHTML = `
+        <div style="text-align:center;padding:60px; color:var(--text-muted)">
+          <p style="font-size:40px">📭</p>
+          <p>Nenhum empréstimo ativo encontrado.</p>
+          <p style="font-size:12px; margin-top:8px">
+            Verifique se existem empréstimos com status "ativo" no Dashboard.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    await processarEExibirAvisos(emprestimos);
+
+  } catch (err) {
+    console.error('Erro em inicializarAvisos:', err);
+    const lista = document.getElementById('lista-avisos');
+    if (lista) {
+      lista.innerHTML = `
+        <div style="padding:24px; background:rgba(239,68,68,0.1); border-radius:8px; color:#ef4444; border: 1px solid rgba(239,68,68,0.2)">
+          <strong style="display:block;margin-bottom:8px">⚠️ Erro ao carregar avisos:</strong>
+          ${err.message}
+        </div>
+      `;
+    }
+  }
+}
+
+async function processarEExibirAvisos(emprestimos) {
+  const lista = document.getElementById('lista-avisos');
+  if (!lista) return;
+
+  const avisos = [];
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  for (const emp of emprestimos) {
-    const devedor = emp.devedores;
-    const pagamentos = (emp.pagamentos || []).sort(
-      (a, b) => new Date(b.data_pagamento)
-        - new Date(a.data_pagamento)
-    );
-    const ultimoPagamento = pagamentos[0] || null;
+  const fmt = v => new Intl.NumberFormat('pt-BR', {
+    style: 'currency', currency: 'BRL'
+  }).format(v || 0);
 
-    // Data do último pagamento ou data de início
-    const refData = ultimoPagamento
-      ? new Date(ultimoPagamento.data_pagamento + 'T00:00:00')
-      : new Date(emp.data_inicio + 'T00:00:00');
+  const fmtData = d => {
+    if (!d) return '—';
+    return new Date(d + 'T00:00:00')
+      .toLocaleDateString('pt-BR');
+  };
 
-    // Próxima data de vencimento = ref + 30 dias
-    const proximoVenc = new Date(refData);
-    proximoVenc.setDate(proximoVenc.getDate() + 30);
-    proximoVenc.setHours(0, 0, 0, 0);
+  // Resumo geral sempre no topo
+  const totalSaldo = emprestimos
+    .reduce((a, e) => a + (Number(e.saldo_devedor) || 0), 0);
+  const totalJuros = emprestimos
+    .reduce((a, e) => a +
+      Math.round(Number(e.saldo_devedor) * Number(e.taxa_mensal) * 100) / 100,
+    0);
 
-    const diasParaVenc = Math.floor(
-      (proximoVenc - hoje) / (1000 * 60 * 60 * 24)
-    );
-    const diasAtraso = diasParaVenc < 0
-      ? Math.abs(diasParaVenc) : 0;
-    const jurosProximos = Math.round(
-      emp.saldo_devedor * emp.taxa_mensal * 100
-    ) / 100;
-    const totalPago = pagamentos
-      .reduce((a, p) => a + p.valor_pago, 0);
-    const percQuitado = Math.round(
-      ((emp.valor_principal - emp.saldo_devedor)
-        / emp.valor_principal) * 100
-    );
-
-    // ── TIPO 1: ATRASADO ──────────────────────────────
-    if (diasAtraso > 0) {
-      todosAvisos.push({
-        id: `atrasado-${emp.id}`,
-        tipo: diasAtraso > 30 ? 'critico' : 'atrasado',
-        icone: diasAtraso > 30 ? '🚨' : '⚠️',
-        titulo: diasAtraso > 30
-          ? `${devedor.nome} — Atraso grave`
-          : `${devedor.nome} — Em atraso`,
-        descricao: `${diasAtraso} dias sem pagamento. ` +
-          `Juros acumulando sobre saldo de ` +
-          `${formatarReais(emp.saldo_devedor)}.`,
-        detalhe: `Último pagamento: ` +
-          (ultimoPagamento
-            ? new Date(ultimoPagamento.data_pagamento +
-                'T00:00:00')
-              .toLocaleDateString('pt-BR')
-            : 'Nenhum'),
-        valorDestaque: formatarReais(jurosProximos),
-        labelValor: 'Juros do período',
-        emprestimoId: emp.id,
-        devedor: devedor.nome,
-        contato: devedor.contato,
-        ordem: diasAtraso > 30 ? 1 : 2,
-        lido: false,
-        criadoEm: new Date()
-      });
-    }
-
-    // ── TIPO 2: PRÓXIMO DO VENCIMENTO ─────────────────
-    if (diasParaVenc >= 0 && diasParaVenc <= 7) {
-      todosAvisos.push({
-        id: `vencendo-${emp.id}`,
-        tipo: 'vencimento',
-        icone: '📅',
-        titulo: `${devedor.nome} — Vence em ${
-          diasParaVenc === 0
-            ? 'hoje'
-            : diasParaVenc === 1
-            ? 'amanhã'
-            : `${diasParaVenc} dias`
-        }`,
-        descricao: `Parcela prevista para ` +
-          `${proximoVenc.toLocaleDateString('pt-BR')}.`,
-        detalhe: `Saldo devedor: ` +
-          `${formatarReais(emp.saldo_devedor)}`,
-        valorDestaque: formatarReais(jurosProximos),
-        labelValor: 'Juros estimados',
-        emprestimoId: emp.id,
-        devedor: devedor.nome,
-        contato: devedor.contato,
-        ordem: 3,
-        lido: false,
-        criadoEm: new Date()
-      });
-    }
-
-    // ── TIPO 3: PRÓXIMO DO VENCIMENTO (7-15 DIAS) ─────
-    if (diasParaVenc > 7 && diasParaVenc <= 15) {
-      todosAvisos.push({
-        id: `prevencao-${emp.id}`,
-        tipo: 'prevencao',
-        icone: '🔔',
-        titulo: `${devedor.nome} — Vence em ${
-          diasParaVenc
-        } dias`,
-        descricao: `Parcela prevista para ` +
-          `${proximoVenc.toLocaleDateString('pt-BR')}.`,
-        detalhe: `Juros estimados: ` +
-          `${formatarReais(jurosProximos)}`,
-        valorDestaque: formatarReais(emp.saldo_devedor),
-        labelValor: 'Saldo devedor',
-        emprestimoId: emp.id,
-        devedor: devedor.nome,
-        contato: devedor.contato,
-        ordem: 4,
-        lido: false,
-        criadoEm: new Date()
-      });
-    }
-
-    // ── TIPO 4: PAGAMENTO ABAIXO DOS JUROS ───────────
-    if (ultimoPagamento &&
-      ultimoPagamento.valor_amortizacao < 0) {
-      todosAvisos.push({
-        id: `saldo-cresceu-${emp.id}`,
-        tipo: 'atencao',
-        icone: '📈',
-        titulo: `${devedor.nome} — Saldo cresceu`,
-        descricao: `Último pagamento foi menor que os ` +
-          `juros. O saldo aumentou ` +
-          `${formatarReais(
-            Math.abs(ultimoPagamento.valor_amortizacao)
-          )}.`,
-        detalhe: `Saldo atual: ` +
-          `${formatarReais(emp.saldo_devedor)}`,
-        valorDestaque: formatarReais(
-          Math.abs(ultimoPagamento.valor_amortizacao)
-        ),
-        labelValor: 'Saldo acrescido',
-        emprestimoId: emp.id,
-        devedor: devedor.nome,
-        contato: devedor.contato,
-        ordem: 5,
-        lido: false,
-        criadoEm: new Date()
-      });
-    }
-
-    // ── TIPO 5: MOVIMENTAÇÃO RECENTE ─────────────────
-    if (ultimoPagamento) {
-      const dataPgto = new Date(
-        ultimoPagamento.data_pagamento + 'T00:00:00'
-      );
-      const diasDesde = Math.floor(
-        (hoje - dataPgto) / (1000 * 60 * 60 * 24)
-      );
-      if (diasDesde <= 3) {
-        todosAvisos.push({
-          id: `recente-${emp.id}-${ultimoPagamento.data_pagamento}`,
-          tipo: 'recente',
-          icone: '✅',
-          titulo: `${devedor.nome} — Pagamento recebido`,
-          descricao: `${formatarReais(
-            ultimoPagamento.valor_pago
-          )} recebido em ` +
-            `${dataPgto.toLocaleDateString('pt-BR')}.`,
-          detalhe: `Novo saldo: ` +
-            `${formatarReais(ultimoPagamento.saldo_apos)}`,
-          valorDestaque: formatarReais(
-            ultimoPagamento.valor_pago
-          ),
-          labelValor: 'Valor recebido',
-          emprestimoId: emp.id,
-          devedor: devedor.nome,
-          contato: devedor.contato,
-          ordem: 6,
-          lido: false,
-          criadoEm: dataPgto
-        });
-      }
-    }
-
-    // ── TIPO 6: PRÓXIMA PARCELA DO MÊS ───────────────
-    const mesAtual = hoje.getMonth();
-    const anoAtual = hoje.getFullYear();
-    const mesVenc = proximoVenc.getMonth();
-    const anoVenc = proximoVenc.getFullYear();
-    if (mesVenc === mesAtual && anoVenc === anoAtual
-      && diasParaVenc > 15) {
-      todosAvisos.push({
-        id: `parcela-mes-${emp.id}`,
-        tipo: 'parcela',
-        icone: '💰',
-        titulo: `${devedor.nome} — Parcela este mês`,
-        descricao: `Vencimento em ` +
-          `${proximoVenc.toLocaleDateString('pt-BR')} ` +
-          `(${diasParaVenc} dias).`,
-        detalhe: `Juros estimados: ` +
-          `${formatarReais(jurosProximos)}`,
-        valorDestaque: formatarReais(jurosProximos),
-        labelValor: 'Juros do período',
-        emprestimoId: emp.id,
-        devedor: devedor.nome,
-        contato: devedor.contato,
-        ordem: 7,
-        lido: false,
-        criadoEm: new Date()
-      });
-    }
-
-    // ── TIPO 7: QUASE QUITADO ─────────────────────────
-    if (percQuitado >= 80 && percQuitado < 100) {
-      todosAvisos.push({
-        id: `quase-quitado-${emp.id}`,
-        tipo: 'progresso',
-        icone: '🏁',
-        titulo: `${devedor.nome} — ${percQuitado}% quitado`,
-        descricao: `Faltam apenas ` +
-          `${formatarReais(emp.saldo_devedor)} ` +
-          `para quitar o empréstimo.`,
-        detalhe: `Pago até agora: ` +
-          `${formatarReais(totalPago)}`,
-        valorDestaque: formatarReais(emp.saldo_devedor),
-        labelValor: 'Saldo restante',
-        emprestimoId: emp.id,
-        devedor: devedor.nome,
-        contato: devedor.contato,
-        ordem: 8,
-        lido: false,
-        criadoEm: new Date()
-      });
-    }
-
-    // ── TIPO 8: SEM NENHUM PAGAMENTO ─────────────────
-    if (pagamentos.length === 0) {
-      const diasSemPgto = Math.floor(
-        (hoje - new Date(emp.data_inicio + 'T00:00:00'))
-        / (1000 * 60 * 60 * 24)
-      );
-      if (diasSemPgto > 30) {
-        todosAvisos.push({
-          id: `sem-pgto-${emp.id}`,
-          tipo: 'atrasado',
-          icone: '⚠️',
-          titulo: `${devedor.nome} — Sem pagamentos`,
-          descricao: `Este empréstimo existe há ` +
-            `${diasSemPgto} dias e nunca teve ` +
-            `pagamento registrado.`,
-          detalhe: `Valor original: ` +
-            `${formatarReais(emp.valor_principal)}`,
-          valorDestaque: formatarReais(
-            emp.saldo_devedor * emp.taxa_mensal
-          ),
-          labelValor: 'Juros acumulados',
-          emprestimoId: emp.id,
-          devedor: devedor.nome,
-          contato: devedor.contato,
-          ordem: 2,
-          lido: false,
-          criadoEm: new Date()
-        });
-      }
-    }
-  }
-
-  // ── TIPO 9: RESUMO MENSAL ─────────────────────────
-  if (emprestimos.length > 0) {
-    const totalJurosMes = emprestimos.reduce(
-      (a, e) => a + Math.round(
-        e.saldo_devedor * e.taxa_mensal * 100
-      ) / 100, 0
-    );
-    const totalSaldo = emprestimos.reduce(
-      (a, e) => a + e.saldo_devedor, 0
-    );
-    const totalAtrasados = emprestimos.filter(e => {
-      const pgs = (e.pagamentos || []).sort(
-        (a,b) => new Date(b.data_pagamento)
-          - new Date(a.data_pagamento)
-      );
-      const ref = pgs[0]
-        ? new Date(pgs[0].data_pagamento + 'T00:00:00')
-        : new Date(e.data_inicio + 'T00:00:00');
-      const prox = new Date(ref);
-      prox.setDate(prox.getDate() + 30);
-      return prox < hoje;
-    }).length;
-
-    const nomeMes = hoje.toLocaleDateString('pt-BR', {
-      month: 'long', year: 'numeric'
-    });
-
-    todosAvisos.push({
-      id: 'resumo-mensal',
-      tipo: 'resumo',
-      icone: '📊',
-      titulo: `Resumo — ${
-        nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)
-      }`,
-      descricao:
-        `${emprestimos.length} empréstimo(s) ativo(s). ` +
-        `${totalAtrasados} em atraso. ` +
-        `Juros esperados este mês: ` +
-        `${formatarReais(totalJurosMes)}.`,
-      detalhe: `Total em carteira: ` +
-        `${formatarReais(totalSaldo)}`,
-      valorDestaque: formatarReais(totalJurosMes),
-      labelValor: 'Juros do mês',
-      emprestimoId: null,
-      devedor: null,
-      contato: null,
-      ordem: 0,
-      lido: false,
-      criadoEm: new Date()
-    });
-  }
-
-  // Ordenar por prioridade
-  todosAvisos.sort((a, b) => a.ordem - b.ordem);
-}
-
-// Renderizar lista de avisos
-function renderizarAvisos(filtro) {
-  filtroAtivo = filtro;
-  const container = document.getElementById('lista-avisos');
-  if (!container) return;
-
-  atualizarFiltroAtivo(filtro);
-
-  const avisosFiltrados = filtrarAvisos(filtro);
-
-  if (avisosFiltrados.length === 0) {
-    container.innerHTML = `
-      <div class="avisos-vazio">
-        <span class="avisos-vazio-icone">
-          ${filtro === 'atrasados' ? '✅'
-            : filtro === 'vencimento' ? '🎉'
-            : filtro === 'recente' ? '📭'
-            : '⭐'}
-        </span>
-        <p class="avisos-vazio-titulo">
-          ${filtro === 'atrasados'
-            ? 'Nenhum empréstimo em atraso!'
-            : filtro === 'vencimento'
-            ? 'Nenhum vencimento próximo!'
-            : filtro === 'recente'
-            ? 'Nenhuma movimentação recente.'
-            : 'Tudo em dia e sob controle.'}
-        </p>
-        <p class="avisos-vazio-sub">
-          ${filtro === 'todos' && todosAvisos.length === 0
-            ? 'Cadastre empréstimos para ver os avisos aqui.'
-            : 'Nenhum aviso nesta categoria no momento.'}
-        </p>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = avisosFiltrados
-    .map(aviso => renderizarCardAviso(aviso))
-    .join('');
-
-  // Adicionar listeners nos botões
-  container.querySelectorAll('[data-emprestimo-id]')
-    .forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.dataset.emprestimoId;
-        if (id) navegarParaEmprestimo(id);
-      });
-    });
-
-  container.querySelectorAll('[data-whats]')
-    .forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const contato = btn.dataset.whats;
-        const msg = btn.dataset.msg;
-        if (contato) abrirWhatsApp(contato, msg);
-      });
-    });
-}
-
-// Filtrar avisos por tipo
-function filtrarAvisos(filtro) {
-  if (filtro === 'todos') return todosAvisos;
-  if (filtro === 'atrasados') return todosAvisos.filter(
-    a => ['atrasado','critico','sem-pgto'].includes(a.tipo)
-  );
-  if (filtro === 'vencimento') return todosAvisos.filter(
-    a => ['vencimento','prevencao','parcela'].includes(a.tipo)
-  );
-  if (filtro === 'recente') return todosAvisos.filter(
-    a => ['recente','progresso','resumo'].includes(a.tipo)
-  );
-  if (filtro === 'atencao') return todosAvisos.filter(
-    a => ['atencao','saldo-cresceu'].includes(a.tipo)
-  );
-  return todosAvisos;
-}
-
-// Renderizar card individual
-function renderizarCardAviso(aviso) {
-  const corBorda = {
-    critico:   '#ef4444',
-    atrasado:  '#f97316',
-    vencimento:'#f59e0b',
-    prevencao: '#eab308',
-    parcela:   '#3b82f6',
-    recente:   '#22c55e',
-    progresso: '#a855f7',
-    atencao:   '#f97316',
-    resumo:    '#64748b',
-  }[aviso.tipo] || '#64748b';
-
-  const msgWhats = aviso.contato
-    ? encodeURIComponent(
-        `Olá ${aviso.devedor}, passando para lembrar ` +
-        `que sua parcela vence em breve. ` +
-        `Saldo devedor: ${aviso.valorDestaque}. ` +
-        `Qualquer dúvida estou à disposição.`
-      )
-    : '';
-
-  return `
-    <div class="aviso-card aviso-${aviso.tipo}"
-      style="border-left-color: ${corBorda}">
-
-      <div class="aviso-card-topo">
-        <span class="aviso-icone">${aviso.icone}</span>
-        <div class="aviso-card-info">
-          <span class="aviso-titulo">${aviso.titulo}</span>
-          <span class="aviso-descricao">
-            ${aviso.descricao}
-          </span>
-          <span class="aviso-detalhe">${aviso.detalhe}</span>
-        </div>
-        <div class="aviso-valor-destaque">
-          <span class="aviso-valor-num">
-            ${aviso.valorDestaque}
-          </span>
-          <span class="aviso-valor-label">
-            ${aviso.labelValor}
-          </span>
-        </div>
-      </div>
-
-      <div class="aviso-card-acoes">
-        ${aviso.emprestimoId ? `
-          <button class="btn-aviso btn-ver"
-            data-emprestimo-id="${aviso.emprestimoId}">
-            Ver Empréstimo
-          </button>
-        ` : ''}
-        ${aviso.contato ? `
-          <button class="btn-aviso btn-whats"
-            data-whats="${aviso.contato}"
-            data-msg="${msgWhats}">
-            WhatsApp
-          </button>
-        ` : ''}
-      </div>
-
-    </div>
-  `;
-}
-
-// Atualizar destaque do filtro ativo
-function atualizarFiltroAtivo(filtro) {
-  document.querySelectorAll('.aviso-filtro').forEach(btn => {
-    btn.classList.toggle(
-      'ativo', btn.dataset.filtro === filtro
-    );
+  avisos.push({
+    cor: '#64748b',
+    icone: '📊',
+    titulo: `Resumo — ${hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`,
+    descricao: `${emprestimos.length} empréstimo(s) ativo(s). ` +
+      `Carteira total: ${fmt(totalSaldo)}. ` +
+      `Juros esperados este mês: ${fmt(totalJuros)}.`,
+    ordem: 0
   });
+
+  emprestimos.forEach(emp => {
+    const nome = emp.devedores?.nome || 'Devedor';
+    const pgtos = (emp.pagamentos || []).sort(
+      (a, b) => new Date(b.data_pagamento) - new Date(a.data_pagamento)
+    );
+    const ultimo = pgtos[0];
+    const baseData = ultimo
+      ? new Date(ultimo.data_pagamento + 'T00:00:00')
+      : new Date(emp.data_inicio + 'T00:00:00');
+    
+    // Calcula próximo vencimento (30 dias após o último pagamento ou início)
+    const proxVenc = new Date(baseData);
+    proxVenc.setDate(proxVenc.getDate() + 30);
+    proxVenc.setHours(0, 0, 0, 0);
+    
+    const diff = Math.floor((proxVenc - hoje) / (1000 * 60 * 60 * 24));
+    const juros = Math.round(Number(emp.saldo_devedor) * Number(emp.taxa_mensal) * 100) / 100;
+
+    // Atrasado
+    if (diff < 0) {
+      const dias = Math.abs(diff);
+      avisos.push({
+        cor: dias > 30 ? '#ef4444' : '#f97316',
+        icone: dias > 30 ? '🚨' : '⚠️',
+        titulo: `${nome} — ${dias > 30 ? 'Atraso grave' : 'Em atraso'} (${dias} dias)`,
+        descricao: `Último pagamento: ${ultimo ? fmtData(ultimo.data_pagamento) : 'Nunca'}. ` +
+          `Juros do período: ${fmt(juros)}. ` +
+          `Saldo devedor: ${fmt(emp.saldo_devedor)}.`,
+        ordem: dias > 30 ? 1 : 2,
+        emprestimoId: emp.id
+      });
+    }
+    // Vence hoje
+    else if (diff === 0) {
+      avisos.push({
+        cor: '#f59e0b',
+        icone: '📅',
+        titulo: `${nome} — Vence hoje`,
+        descricao: `A parcela vence hoje. Juros estimados: ${fmt(juros)}. ` +
+          `Saldo: ${fmt(emp.saldo_devedor)}.`,
+        ordem: 3,
+        emprestimoId: emp.id
+      });
+    }
+    // Vence em breve (até 7 dias)
+    else if (diff <= 7) {
+      avisos.push({
+        cor: '#eab308',
+        icone: '⏰',
+        titulo: `${nome} — Vence em ${diff} dia(s)`,
+        descricao: `Vencimento em ${proxVenc.toLocaleDateString('pt-BR')}. ` +
+          `Juros estimados: ${fmt(juros)}.`,
+        ordem: 4,
+        emprestimoId: emp.id
+      });
+    }
+    // Parcela do mês (8-30 dias)
+    else {
+      avisos.push({
+        cor: '#3b82f6',
+        icone: '💰',
+        titulo: `${nome} — Próxima parcela`,
+        descricao: `Vencimento em ${proxVenc.toLocaleDateString('pt-BR')} ` +
+          `(${diff} dias). Juros estimados: ${fmt(juros)}.`,
+        ordem: 5,
+        emprestimoId: emp.id
+      });
+    }
+
+    // Saldo crescendo (amortização negativa)
+    if (ultimo && Number(ultimo.valor_amortizacao) < 0) {
+      avisos.push({
+        cor: '#a855f7',
+        icone: '📈',
+        titulo: `${nome} — Saldo aumentou`,
+        descricao: `O último pagamento não cobriu os juros. ` +
+          `O saldo cresceu ${fmt(Math.abs(ultimo.valor_amortizacao))}. ` +
+          `Saldo atual: ${fmt(emp.saldo_devedor)}.`,
+        ordem: 6,
+        emprestimoId: emp.id
+      });
+    }
+
+    // Pagamento recente (últimos 3 dias)
+    if (ultimo) {
+      const diasPgto = Math.floor((hoje - new Date(ultimo.data_pagamento + 'T00:00:00')) / (1000 * 60 * 60 * 24));
+      if (diasPgto <= 3 && diasPgto >= 0) {
+        avisos.push({
+          cor: '#22c55e',
+          icone: '✅',
+          titulo: `${nome} — Pagamento recente`,
+          descricao: `${fmt(ultimo.valor_pago)} recebido em ${fmtData(ultimo.data_pagamento)}. ` +
+            `Saldo após pagamento: ${fmt(ultimo.saldo_apos)}.`,
+          ordem: 7,
+          emprestimoId: emp.id
+        });
+      }
+    }
+
+    // Alerta para quem nunca pagou e já passou tempo
+    if (pgtos.length === 0) {
+      const diasSemPgto = Math.floor((hoje - new Date(emp.data_inicio + 'T00:00:00')) / (1000 * 60 * 60 * 24));
+      if (diasSemPgto > 5 && diff > 0) {
+        avisos.push({
+          cor: '#94a3b8',
+          icone: 'ℹ️',
+          titulo: `${nome} — Novo contrato`,
+          descricao: `Empréstimo iniciado há ${diasSemPgto} dias sem pagamentos ainda. ` +
+            `Valor: ${fmt(emp.valor_principal)}.`,
+          ordem: 8,
+          emprestimoId: emp.id
+        });
+      }
+    }
+  });
+
+  // Ordenar por prioridade (ordem)
+  avisos.sort((a, b) => a.ordem - b.ordem);
+
+  lista.innerHTML = avisos.map(av => `
+    <div style="
+      background: #1a2e1c;
+      border: 1px solid #2a3f2c;
+      border-left: 4px solid ${av.cor};
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      cursor: ${av.emprestimoId ? 'pointer' : 'default'};
+      transition: transform 0.2s;
+    "
+    ${av.emprestimoId ? `onclick="sessionStorage.setItem('_abrir_emprestimo','${av.emprestimoId}'); window.location.hash='#/detalhe-emprestimo'"` : ''}
+    onmouseover="if(${!!av.emprestimoId}) this.style.transform='translateX(4px)'"
+    onmouseout="if(${!!av.emprestimoId}) this.style.transform='translateX(0)'">
+      <span style="font-size:24px; flex-shrink:0; margin-top:2px">${av.icone}</span>
+      <div style="flex:1">
+        <p style="margin:0 0 4px; font-weight:700; font-size:15px; color:#f1f5f9">
+          ${av.titulo}
+        </p>
+        <p style="margin:0; font-size:13px; color:#94a3b8; line-height:1.5">
+          ${av.descricao}
+        </p>
+      </div>
+    </div>
+  `).join('');
+
+  console.log('Avisos gerados e exibidos:', avisos.length);
 }
 
-// Contar não lidos para badge na sidebar
-function atualizarBadgeSidebar() {
-  const criticos = todosAvisos.filter(
-    a => ['critico','atrasado'].includes(a.tipo)
-  ).length;
-  // A classe configurada antes era .nav-badge #badge-avisos
-  const badge = document.getElementById('badge-avisos') || document.getElementById('sidebar-avisos-badge');
-  if (badge) {
-    badge.textContent = criticos > 0 ? criticos : '';
-    badge.style.display = criticos > 0 ? 'flex' : 'none';
-  }
-}
-
-// Marcar todos como lidos
-export function marcarTodosComoLidos() {
-  todosAvisos.forEach(a => a.lido = true);
-  if(window.App && App.showToast) {
-     App.showToast('Todos os avisos marcados como lidos.', 'sucesso');
-  }
-  atualizarBadgeSidebar();
-}
-
-// Navegar para empréstimo
-function navegarParaEmprestimo(id) {
-  sessionStorage.setItem('_abrir_emprestimo', id);
-  if (window.location) {
-    window.location.hash = '#/emprestimo/' + id;
-  }
-}
-
-// Abrir WhatsApp
-function abrirWhatsApp(contato, msg) {
-  const numero = contato.replace(/\D/g, '');
-  const url = `https://wa.me/55${numero}?text=${msg}`;
-  window.open(url, '_blank');
-}
-
-// Expor funções globais para os botões do HTML
-window.filtrarAvisosView = (filtro) => {
-  renderizarAvisos(filtro);
-};
-window.marcarTodosComoLidos = marcarTodosComoLidos;
+// Expor funções globais para os botões do HTML (se necessário)
 window.recarregarAvisos = async () => {
-  renderizarEsqueleto();
-  await gerarTodosOsAvisos();
-  renderizarAvisos(filtroAtivo);
-  atualizarBadgeSidebar();
+  await inicializarAvisos();
 };
 
-// Exportar globalmente para script clássico
+// Exportar globalmente para o roteador do app.js
 window.TelaAvisos = { render: inicializarAvisos };
