@@ -144,7 +144,7 @@ const Emprestimos = {
         try {
             const { data, error } = await window.FinancierDB
                 .from('emprestimos')
-                .update({ ...dados, updated_at: new Date().toISOString() })
+                .update(dados)
                 .eq('id', id)
                 .select()
                 .single();
