@@ -11,6 +11,11 @@ const TelaNovoEmprestimo = {
         this._modalidade = 'livre';
         const app = document.getElementById('conteudo-principal');
 
+        // Check for simulator prefill
+        const prefill = JSON.parse(sessionStorage.getItem('_sim_para_emprestimo') || 'null');
+        sessionStorage.removeItem('_sim_para_emprestimo');
+        if (prefill?.mod) this._modalidade = prefill.mod;
+
         // Carrega lista de devedores para o select
         const devedores = await Devedores.listar();
 
@@ -45,12 +50,14 @@ const TelaNovoEmprestimo = {
                                 <label class="form-label">Valor Principal (R$) <span class="required">*</span></label>
                                 <input type="number" id="emp-valor" class="form-input form-input-money"
                                     step="0.01" min="0.01" placeholder="0,00" required
+                                    value="${prefill?.pv || ''}"
                                     oninput="TelaNovoEmprestimo._atualizarPreview()">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Taxa Mensal (%) <span class="required">*</span></label>
                                 <input type="number" id="emp-taxa" class="form-input form-input-money"
                                     step="0.01" min="0.01" max="99.99" placeholder="5,00" required
+                                    value="${prefill?.taxa || ''}"
                                     oninput="TelaNovoEmprestimo._atualizarPreview()">
                             </div>
                         </div>
@@ -62,45 +69,53 @@ const TelaNovoEmprestimo = {
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Modalidade <span class="required">*</span></label>
-                                <div style="display:flex;gap:12px;margin-top:4px;">
-                                    <label class="radio-option ${this._modalidade === 'livre' ? 'radio-option--active' : ''}">
-                                        <input type="radio" name="modalidade" value="livre" checked
+                                <div class="radio-modalidades" style="margin-top:4px;">
+                                    <label class="radio-modalidade">
+                                        <input type="radio" name="modalidade" value="livre"
+                                            ${this._modalidade === 'livre' ? 'checked' : ''}
                                             onchange="TelaNovoEmprestimo._setModalidade('livre')">
-                                        <div style="display:flex;flex-direction:column;">
-                                            <span>Livre</span>
-                                            <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">Juros sobre saldo</span>
+                                        <div class="radio-card">
+                                            <span class="radio-icone">📊</span>
+                                            <span class="radio-nome">Livre</span>
+                                            <span class="radio-desc">Juros sobre saldo — parcela variável</span>
                                         </div>
                                     </label>
-                                    <label class="radio-option ${this._modalidade === 'price' ? 'radio-option--active' : ''}">
+                                    <label class="radio-modalidade">
                                         <input type="radio" name="modalidade" value="price"
+                                            ${this._modalidade === 'price' ? 'checked' : ''}
                                             onchange="TelaNovoEmprestimo._setModalidade('price')">
-                                        <div style="display:flex;flex-direction:column;">
-                                            <span>Price</span>
-                                            <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">Parcela fixa</span>
+                                        <div class="radio-card">
+                                            <span class="radio-icone">📐</span>
+                                            <span class="radio-nome">Price</span>
+                                            <span class="radio-desc">Parcela fixa — amortização crescente</span>
                                         </div>
                                     </label>
-                                    <label class="radio-option ${this._modalidade === 'sac' ? 'radio-option--active' : ''}">
+                                    <label class="radio-modalidade">
                                         <input type="radio" name="modalidade" value="sac"
+                                            ${this._modalidade === 'sac' ? 'checked' : ''}
                                             onchange="TelaNovoEmprestimo._setModalidade('sac')">
-                                        <div style="display:flex;flex-direction:column;">
-                                            <span>SAC</span>
-                                            <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">Amortização fixa</span>
+                                        <div class="radio-card">
+                                            <span class="radio-icone">📉</span>
+                                            <span class="radio-nome">SAC</span>
+                                            <span class="radio-desc">Amortização fixa — parcela decrescente</span>
                                         </div>
                                     </label>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Campos Price (condicionais) -->
-                        <div id="price-section" style="display:none;">
+                        <!-- Campos Price/SAC (condicionais) -->
+                        <div id="price-section" style="display:${this._modalidade !== 'livre' ? 'block' : 'none'};">
                             <div class="form-row">
                                 <div class="form-group">
                                     <label class="form-label">Prazo em Meses <span class="required">*</span></label>
                                     <input type="number" id="emp-prazo" class="form-input" min="1" placeholder="12"
+                                        value="${prefill?.prazo || ''}"
+                                        ${this._modalidade !== 'livre' ? 'required' : ''}
                                         oninput="TelaNovoEmprestimo._atualizarPreview()">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label" id="label-pmt">PMT (Parcela Calculada)</label>
+                                    <label class="form-label" id="label-pmt">${this._modalidade === 'sac' ? 'SAC = Parcela Inicial Calculada' : 'PMT (Parcela Calculada)'}</label>
                                     <div class="pmt-display" id="pmt-display" style="padding:12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-md);">
                                         <span style="color:var(--text-muted);">Preencha os campos</span>
                                     </div>
@@ -128,7 +143,13 @@ const TelaNovoEmprestimo = {
         </div>`;
 
         if (window.lucide) window.lucide.createIcons();
+
+        // If prefilled, trigger preview
+        if (prefill) {
+            setTimeout(() => this._atualizarPreview(), 100);
+        }
     },
+
 
     _setModalidade(valor) {
         this._modalidade = valor;
@@ -149,9 +170,9 @@ const TelaNovoEmprestimo = {
             prazoInput.required = false;
         }
 
-        document.querySelectorAll('.radio-option').forEach(el => {
+        document.querySelectorAll('.radio-modalidade').forEach(el => {
             const input = el.querySelector('input');
-            el.classList.toggle('radio-option--active', input.checked);
+            // CSS handles visual state via :checked + .radio-card
         });
 
         this._atualizarPreview();

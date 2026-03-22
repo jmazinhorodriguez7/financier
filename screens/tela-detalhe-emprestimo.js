@@ -110,6 +110,39 @@ const TelaDetalheEmprestimo = {
                     </div>
                 </div>
 
+                <!-- Saúde do Empréstimo + Projeção -->
+                ${emprestimo.status === 'ativo' ? (() => {
+                    const saude = Calculos.calcularSaudeEmprestimo(emprestimo, pagamentos);
+                    const media = pagamentos.length > 0
+                        ? pagamentos.reduce((s, p) => s + Number(p.valor_pago || 0), 0) / pagamentos.length
+                        : 0;
+                    const proj = Calculos.calcularProjecaoQuitacao(
+                        Number(emprestimo.saldo_devedor),
+                        Number(emprestimo.taxa_mensal),
+                        media
+                    );
+                    return `
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;margin-bottom:24px;">
+                        <div class="card" style="padding:20px;display:flex;align-items:center;gap:16px;min-width:200px;">
+                            <div class="saude-circulo" style="border-color:${saude.cor};color:${saude.cor};">${saude.pontos}</div>
+                            <div>
+                                <div class="saude-label" style="color:${saude.cor};">${saude.label}</div>
+                                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Saúde do Empréstimo</div>
+                            </div>
+                        </div>
+                        ${proj ? `
+                        <div class="projecao-card" style="margin-top:0;">
+                            ${proj.alerta
+                                ? `<strong style="color:var(--warning);">⚠ ${proj.alerta}</strong>`
+                                : `<strong>📅 Projeção de Quitação:</strong> ${proj.meses} meses (${proj.data})<br>
+                                   <span style="font-size:12px;">Baseado na média de pagamentos de ${formatarReais(media)}/mês.</span>`
+                            }
+                        </div>
+                        ` : ''}
+                    </div>
+                    `;
+                })() : ''}
+
                 <!-- Abas -->
                 <div style="display:flex;gap:16px;border-bottom:1px solid var(--border-subtle);margin-bottom:24px;overflow-x:auto;">
                     <button class="tab-btn tab-btn-active" onclick="TelaDetalheEmprestimo._switchTab('pagamentos', this)" style="white-space:nowrap;">Extrato de Pagamentos</button>
@@ -345,6 +378,9 @@ const TelaDetalheEmprestimo = {
                                         <div class="alert-description">O saldo devedor irá <strong>aumentar</strong> após este pagamento.</div>
                                     </div>
                                 </div>
+
+                                <!-- Alerta inteligente -->
+                                <div id="alerta-inteligente" style="display:none;"></div>
                             </div>
                         </div>
                         
@@ -532,6 +568,18 @@ const TelaDetalheEmprestimo = {
         } else {
             amortSpan.style.color = 'var(--green-400)';
             alerta.style.display = 'none';
+        }
+
+        // Alerta inteligente
+        const alertaInt = document.getElementById('alerta-inteligente');
+        if (alertaInt) {
+            const feedback = Calculos.gerarAlertaPagamento(valor, juros, amortizacao);
+            if (feedback) {
+                alertaInt.style.display = 'block';
+                alertaInt.innerHTML = `<div class="alerta-pagamento ${feedback.tipo}">${feedback.msg}</div>`;
+            } else {
+                alertaInt.style.display = 'none';
+            }
         }
     },
 

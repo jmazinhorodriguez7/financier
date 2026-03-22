@@ -193,6 +193,98 @@ function gerarTabelaSAC(pv, taxaMensal, prazo) {
   return tabela;
 }
 
+// SIMULAR ANTECIPAÇÃO DE PARCELAS
+function simularAntecipacao(tabela, parcelasAntecipadas) {
+  if (parcelasAntecipadas >= tabela.length) {
+    return { economiaJuros: 0, novoTotal: 0, parcelasRestantes: 0 };
+  }
+  const restantes = tabela.slice(parcelasAntecipadas);
+  const jurosOriginais = tabela.reduce((a, p) => a + (p.juros || 0), 0);
+  const jurosRestantes = restantes.reduce((a, p) => a + (p.juros || 0), 0);
+  return {
+    economiaJuros: arredondar(jurosOriginais - jurosRestantes),
+    parcelasRestantes: restantes.length,
+    novoTotal: arredondar(restantes.reduce((a, p) => a + (p.parcela || p.pmt || 0), 0))
+  };
+}
+
+// INDICADOR DE SAÚDE DO EMPRÉSTIMO (0-100)
+function calcularSaudeEmprestimo(emprestimo, pagamentos) {
+  let pontos = 100;
+  const pgtsOrdenados = [...pagamentos].sort((a, b) =>
+    new Date(b.data_pagamento) - new Date(a.data_pagamento)
+  );
+  const ultimo = pgtsOrdenados[0];
+  if (ultimo) {
+    const dias = Math.floor(
+      (new Date() - new Date(ultimo.data_pagamento)) / (1000 * 60 * 60 * 24)
+    );
+    if (dias > 60) pontos -= 40;
+    else if (dias > 30) pontos -= 20;
+    else if (dias > 15) pontos -= 10;
+  } else {
+    pontos -= 30;
+  }
+  const pgtosBaixos = pagamentos.filter(p => Number(p.valor_amortizacao) < 0).length;
+  pontos -= pgtosBaixos * 5;
+  const percQuitado = ((emprestimo.valor_principal - emprestimo.saldo_devedor) / emprestimo.valor_principal) * 100;
+  if (percQuitado >= 75) pontos += 10;
+  else if (percQuitado >= 50) pontos += 5;
+  pontos = Math.max(0, Math.min(100, pontos));
+  const config = pontos >= 80
+    ? { label: 'Excelente', cor: '#22c55e' }
+    : pontos >= 60
+    ? { label: 'Bom', cor: '#84cc16' }
+    : pontos >= 40
+    ? { label: 'Atenção', cor: '#f59e0b' }
+    : { label: 'Crítico', cor: '#ef4444' };
+  return { pontos, ...config };
+}
+
+// PROJEÇÃO DE QUITAÇÃO
+function calcularProjecaoQuitacao(saldoDevedor, taxaMensal, mediaPagamentos) {
+  if (!mediaPagamentos || mediaPagamentos <= 0) return null;
+  const jurosProximo = saldoDevedor * taxaMensal;
+  if (mediaPagamentos <= jurosProximo) {
+    return { meses: null, data: null, alerta: 'Pagamento médio não cobre os juros.' };
+  }
+  let saldo = saldoDevedor;
+  let meses = 0;
+  while (saldo > 0.01 && meses < 1200) {
+    const juros = saldo * taxaMensal;
+    saldo = arredondar(saldo - (mediaPagamentos - juros));
+    meses++;
+  }
+  const dataQuitacao = new Date();
+  dataQuitacao.setMonth(dataQuitacao.getMonth() + meses);
+  return {
+    meses,
+    data: dataQuitacao.toLocaleDateString('pt-BR'),
+    alerta: null
+  };
+}
+
+// ALERTA INTELIGENTE DE PAGAMENTO
+function gerarAlertaPagamento(valorPago, juros, amort) {
+  if (valorPago <= 0) return null;
+  if (valorPago < juros) return {
+    tipo: 'critico',
+    msg: `⚠️ Pagamento abaixo dos juros. O saldo vai crescer ${formatarReais(Math.abs(amort))} este mês.`
+  };
+  if (amort < juros * 0.3) return {
+    tipo: 'atencao',
+    msg: `ℹ️ Amortização baixa. Considere aumentar o pagamento para reduzir o saldo mais rápido.`
+  };
+  if (amort >= juros * 2) return {
+    tipo: 'sucesso',
+    msg: `✓ Ótimo pagamento! Amortização expressiva reduzindo o saldo rapidamente.`
+  };
+  return {
+    tipo: 'info',
+    msg: `✓ Bom pagamento. Saldo reduzirá ${formatarReais(amort)} este mês.`
+  };
+}
+
 function testarSAC() {
   const tabela = gerarTabelaSAC(12000, 0.02, 4);
   console.assert(tabela[0].amortizacao === 3000, 'SAC T1: amortização fixa errada');
@@ -208,6 +300,7 @@ testarSAC();
 
 // Expor globalmente (compatível com script tags)
 window.Calculos = {
+  arredondar,
   calcularPagamentoLivre,
   calcularPMT,
   calcularParcelaPrice,
@@ -215,6 +308,10 @@ window.Calculos = {
   calcularParcelaSAC,
   calcularPagamentoSAC,
   gerarTabelaSAC,
+  simularAntecipacao,
+  calcularSaudeEmprestimo,
+  calcularProjecaoQuitacao,
+  gerarAlertaPagamento,
   validarEntradaPagamento,
   validarEntradaEmprestimo
 };

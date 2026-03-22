@@ -288,6 +288,69 @@ const PdfExportador = {
             margin: { top: 46, left: 14, right: 14 },
         });
 
+        // ---- COMPARAÇÃO DE MODALIDADES (Price vs SAC) ----
+        const empComPrazo = emprestimos.filter(e => 
+            (e.modalidade === 'price' || e.modalidade === 'sac') && e.prazo_meses > 0
+        );
+
+        if (empComPrazo.length > 0) {
+            doc.addPage();
+            const yTop = 12;
+            doc.setFillColor(13, 31, 15);
+            doc.rect(0, 0, 297, 18, 'F');
+            doc.setTextColor(34, 197, 94);
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Comparação de Modalidades', 14, yTop);
+
+            let startYComp = 24;
+            empComPrazo.forEach(emp => {
+                const pv = Number(emp.valor_principal);
+                const tx = Number(emp.taxa_mensal);
+                const pr = emp.prazo_meses;
+                const nomeDevedor = emp.devedores?.nome || '—';
+
+                // Generate both tables
+                const tabPrice = Calculos.gerarTabelaPrice(pv, tx, pr);
+                const tabSAC = Calculos.gerarTabelaSAC(pv, tx, pr);
+                const tjPrice = tabPrice.reduce((a, p) => a + p.juros, 0);
+                const tjSAC = tabSAC.reduce((a, p) => a + p.juros, 0);
+                const tpPrice = tabPrice.reduce((a, p) => a + p.pmt, 0);
+                const tpSAC = tabSAC.reduce((a, p) => a + p.parcela, 0);
+
+                doc.setTextColor(241, 245, 249);
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`${nomeDevedor} — ${Formatadores.formatarReais(pv)} (${emp.modalidade.toUpperCase()})`, 14, startYComp);
+                startYComp += 4;
+
+                doc.autoTable({
+                    startY: startYComp,
+                    head: [['Modalidade', 'Parcela 1ª', 'Parcela Última', 'Total Juros', 'Total Pago', 'Economia']],
+                    body: [
+                        [
+                            'Price', Formatadores.formatarReais(tabPrice[0].pmt),
+                            Formatadores.formatarReais(tabPrice[pr - 1].pmt),
+                            Formatadores.formatarReais(tjPrice),
+                            Formatadores.formatarReais(tpPrice),
+                            '—'
+                        ],
+                        [
+                            'SAC', Formatadores.formatarReais(tabSAC[0].parcela),
+                            Formatadores.formatarReais(tabSAC[pr - 1].parcela),
+                            Formatadores.formatarReais(tjSAC),
+                            Formatadores.formatarReais(tpSAC),
+                            Formatadores.formatarReais(tjPrice - tjSAC)
+                        ]
+                    ],
+                    headStyles: { fillColor: [13, 31, 15], textColor: [34, 197, 94], fontSize: 7 },
+                    bodyStyles: { fontSize: 7 },
+                    margin: { left: 14, right: 14 }
+                });
+                startYComp = doc.lastAutoTable.finalY + 10;
+            });
+        }
+
         // ---- RODAPÉ ----
         const totalPaginas = doc.internal.getNumberOfPages();
         for (let i = 1; i <= totalPaginas; i++) {

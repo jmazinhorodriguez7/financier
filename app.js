@@ -119,6 +119,10 @@ const App = {
                 this.atualizarHeaderTitulo('Avisos');
                 TelaAvisos.render();
                 break;
+            case 'simulador':
+                this.atualizarHeaderTitulo('Simulador de Empréstimos');
+                TelaSimulador.render();
+                break;
             case 'exportar':
                 this.atualizarHeaderTitulo('Exportar Relatório');
                 TelaExportarPdf.render();
@@ -150,6 +154,7 @@ const App = {
             'novo-emprestimo': 'emprestimos', 'emprestimo': 'emprestimos',
             'pagamento': 'pagamentos',
             'avisos': 'avisos',
+            'simulador': 'simulador',
             'exportar': 'exportar',
             'configuracoes': 'configuracoes'
         };
@@ -197,6 +202,10 @@ const App = {
                     <i data-lucide="bell"></i>
                     <span style="flex:1;">Avisos</span>
                     <span class="sidebar__badge" id="sidebar-avisos-badge" style="display:none;">0</span>
+                </a>
+                <a href="#/simulador" class="sidebar__item" data-route="simulador">
+                    <i data-lucide="calculator"></i>
+                    <span>Simulador</span>
                 </a>
                 <a href="#/exportar" class="sidebar__item" data-route="exportar">
                     <i data-lucide="file-down"></i>
