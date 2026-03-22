@@ -3656,3 +3656,49 @@ html, body {
   border: 1px solid rgba(59,130,246,0.3);
   color: #93c5fd;
 }
+
+/* =============================================
+   CORREÇÃO DEFINITIVA DO DRAWER / MODAL
+   ============================================= */
+
+.drawer-overlay, .modal-overlay {
+  pointer-events: all !important;
+}
+
+.drawer-panel, .modal {
+  pointer-events: all !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-body, .modal-body {
+  flex: 1;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 24px;
+  /* Scroll customizado para melhor usabilidade */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-normal) transparent;
+}
+
+.drawer-body::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar { 
+  width: 4px; 
+}
+
+.drawer-body::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb {
+  background: var(--border-normal);
+  border-radius: 2px;
+}
+
+.drawer-panel input, 
+.drawer-panel textarea, 
+.drawer-panel select,
+.modal input, 
+.modal textarea, 
+.modal select {
+  pointer-events: all !important;
+  position: relative !important;
+  z-index: 10 !important;
+}

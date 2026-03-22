@@ -325,17 +325,18 @@ const TelaDetalheEmprestimo = {
                 <div class="drawer-panel" onclick="event.stopPropagation()">
                     <div class="drawer-header">
                         <h2 class="drawer-title">Registrar Pagamento</h2>
-                        <button class="drawer-close" onclick="TelaDetalheEmprestimo._fecharDrawer()">
+                        <button type="button" class="drawer-close" onclick="TelaDetalheEmprestimo._fecharDrawer()">
                             <i data-lucide="x"></i>
                         </button>
                     </div>
-                    <form id="form-pagamento" onsubmit="TelaDetalheEmprestimo._handleSalvarPagamento(event)" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
-                        <div class="drawer-body">
+                    <form id="form-pagamento" onsubmit="TelaDetalheEmprestimo._handleSalvarPagamento(event)" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+                        <div class="drawer-body" style="pointer-events: all;">
                             
                             <div class="form-group">
                                 <label class="form-label">Valor Recebido (R$) <span class="required">*</span></label>
                                 <input type="number" id="pag-valor" class="form-input form-input-money"
-                                    step="0.01" min="0.01" placeholder="0,00" required
+                                    step="0.01" min="0.01" placeholder="0,00" required autocomplete="off"
+                                    style="pointer-events: all !important; position: relative; z-index: 10;"
                                     oninput="TelaDetalheEmprestimo._atualizarPreview()">
                             </div>
 
@@ -735,5 +736,19 @@ const TelaDetalheEmprestimo = {
         }
     }
 };
+
+// Listener global para fechar modais com ESC
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const drawerPagamento = document.getElementById('drawer-pagamento');
+        if (drawerPagamento && drawerPagamento.classList.contains('drawer-open')) {
+            TelaDetalheEmprestimo._fecharDrawer();
+        }
+        const drawerEdicao = document.getElementById('drawer-edicao');
+        if (drawerEdicao && drawerEdicao.classList.contains('drawer-open')) {
+            TelaDetalheEmprestimo._fecharDrawerEdicao();
+        }
+    }
+});
 
 window.TelaDetalheEmprestimo = TelaDetalheEmprestimo;
