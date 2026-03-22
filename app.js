@@ -165,8 +165,8 @@ const App = {
         });
         
         // Atualiza badge de avisos na sidebar
-        if (window.Alertas) {
-            window.Alertas.atualizarBadge();
+        if (window.atualizarBadgeAvisos) {
+            window.atualizarBadgeAvisos();
         }
     },
 
@@ -201,7 +201,7 @@ const App = {
                 <a href="#/avisos" class="sidebar__item" data-route="avisos">
                     <i data-lucide="bell"></i>
                     <span style="flex:1;">Avisos</span>
-                    <span class="sidebar__badge" id="sidebar-avisos-badge" style="display:none;">0</span>
+                    <span class="nav-badge" id="badge-avisos" style="display:none;">0</span>
                 </a>
                 <a href="#/simulador" class="sidebar__item" data-route="simulador">
                     <i data-lucide="calculator"></i>

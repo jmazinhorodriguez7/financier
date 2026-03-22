@@ -1,0 +1,18 @@
+feat: reconstrói módulo de Avisos completo
+
+- Engine de avisos com 12 tipos de alerta automáticos
+- Painel de resumo do mês: carteira, juros, recebido
+- Tabela de próximas parcelas por devedor com total
+- Atrasados críticos (>60d), moderados (>30d) e normais
+- Vence hoje e vence em breve (até 7 dias)
+- Parcelas do mês atual por devedor
+- Detecção de saldo crescendo (pgto < juros)
+- Alerta de quitação próxima (< 2 parcelas restantes)
+- Aniversário de contrato
+- Alto rendimento (juros > R$500)
+- Movimentações recentes: pagamentos e novos empréstimos
+- Filtros: Todos, Atrasados, Vencimentos, Parcelas, Movimentações, Financeiro
+- Badge de contagem na sidebar atualizado a cada 5min
+- Marcar individual ou todos como lidos
+- Botão Ver Empréstimo em cada card
+- Linha de total na tabela de parcelas

@@ -65,7 +65,32 @@
     <script src="modules/devedores.js"></script>
     <script src="modules/emprestimos.js"></script>
     <script src="modules/pagamentos.js"></script>
-    <script src="modules/alertas.js?v=6"></script>
+    <!-- Nova Engine de Avisos -->
+    <script type="module">
+        import { gerarTodosOsAvisos } from './modules/engine-avisos.js';
+        
+        async function atualizarBadgeAvisos() {
+            try {
+                if (!window.Auth || !window.Auth.isAutenticado()) return;
+                const avisos = await gerarTodosOsAvisos();
+                const naoLidos = avisos.filter(
+                    a => !a.lido && a.tipo !== 'RESUMO_MES'
+                ).length;
+                const badge = document.getElementById('badge-avisos');
+                if (badge) {
+                    badge.textContent = naoLidos;
+                    badge.style.display = naoLidos > 0 ? 'inline-block' : 'none';
+                }
+            } catch (_) {}
+        }
+        window.atualizarBadgeAvisos = atualizarBadgeAvisos;
+        
+        // Chamadas iniciais e periódicas
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(atualizarBadgeAvisos, 2000);
+            setInterval(atualizarBadgeAvisos, 5 * 60 * 1000);
+        });
+    </script>
     <script src="modules/pdf-exportador.js?v=2"></script>
     <script src="modules/proposta.js"></script>
 
