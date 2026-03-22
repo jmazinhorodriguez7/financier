@@ -21,10 +21,12 @@ const TelaDetalheEmprestimo = {
         </div>`;
 
         try {
-            const [emprestimo, pagamentos] = await Promise.all([
+            const [emprestimo, pagamentos, reqHistorico] = await Promise.all([
                 Emprestimos.buscarPorId(id),
-                Pagamentos.listar(id)
+                Pagamentos.listar(id),
+                window.FinancierDB.from('historico_edicoes').select('*').eq('emprestimo_id', id).order('created_at', { ascending: false })
             ]);
+            const historico = reqHistorico.data || [];
 
             if (!emprestimo) {
                 App.showToast('Empréstimo não encontrado.', 'error');
@@ -54,7 +56,11 @@ const TelaDetalheEmprestimo = {
                             <h1 class="page-title" style="margin-bottom:0;">Empréstimo — ${devedorNome}</h1>
                         </div>
                     </div>
-                    <div class="page-actions">
+                    <div class="page-actions" style="display:flex;gap:12px;">
+                        <button class="btn btn-secundario" id="btn-editar-emprestimo" onclick="TelaDetalheEmprestimo._abrirDrawerEdicao()" ${emprestimo.status === 'quitado' ? 'disabled' : ''}>
+                            <i data-lucide="edit-2" style="width:18px;height:18px;"></i>
+                            Editar
+                        </button>
                         <button class="btn btn-primary" onclick="TelaDetalheEmprestimo._abrirDrawerPagamento()" ${emprestimo.status === 'quitado' ? 'disabled' : ''}>
                             <i data-lucide="dollar-sign" style="width:18px;height:18px;"></i>
                             Registrar Pagamento
@@ -90,10 +96,14 @@ const TelaDetalheEmprestimo = {
                                     <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Data Início</div>
                                     <div style="font-size:16px;font-weight:600;">${formatarData(emprestimo.data_inicio)}</div>
                                 </div>
-                                ${emprestimo.modalidade === 'price' ? `
+                                ${(emprestimo.modalidade === 'price' || emprestimo.modalidade === 'sac') ? `
                                 <div>
-                                    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Prazo</div>
+                                    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Prazo Original</div>
                                     <div style="font-size:16px;font-weight:600;">${emprestimo.prazo_meses} meses</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;">Prazo Restante</div>
+                                    <div style="font-size:16px;font-weight:600;">${emprestimo.prazo_restante != null ? emprestimo.prazo_restante : (emprestimo.prazo_meses - pagamentos.length)} meses</div>
                                 </div>` : ''}
                             </div>
                         </div>
@@ -101,10 +111,16 @@ const TelaDetalheEmprestimo = {
                 </div>
 
                 <!-- Abas -->
-                <div style="display:flex;gap:16px;border-bottom:1px solid var(--border-subtle);margin-bottom:24px;">
-                    <button class="tab-btn tab-btn-active" onclick="TelaDetalheEmprestimo._switchTab('pagamentos', this)">Extrato de Pagamentos</button>
+                <div style="display:flex;gap:16px;border-bottom:1px solid var(--border-subtle);margin-bottom:24px;overflow-x:auto;">
+                    <button class="tab-btn tab-btn-active" onclick="TelaDetalheEmprestimo._switchTab('pagamentos', this)" style="white-space:nowrap;">Extrato de Pagamentos</button>
                     ${emprestimo.modalidade === 'price' ? `
-                    <button class="tab-btn" onclick="TelaDetalheEmprestimo._switchTab('price', this)">Tabela Teórica (Price)</button>
+                    <button class="tab-btn" onclick="TelaDetalheEmprestimo._switchTab('price', this)" style="white-space:nowrap;">Tabela Teórica (Price)</button>
+                    ` : ''}
+                    ${emprestimo.modalidade === 'sac' ? `
+                    <button class="tab-btn" onclick="TelaDetalheEmprestimo._switchTab('sac', this)" style="white-space:nowrap;">Tabela Teórica (SAC)</button>
+                    ` : ''}
+                    ${historico.length > 0 ? `
+                    <button class="tab-btn" onclick="TelaDetalheEmprestimo._switchTab('historico', this)" style="white-space:nowrap;">Histórico de Alterações</button>
                     ` : ''}
                 </div>
 
@@ -161,7 +177,7 @@ const TelaDetalheEmprestimo = {
                     `}
                 </div>
 
-                <!-- Tabela Price -->
+                <!-- Tabela Price / SAC / Histórico -->
                 ${emprestimo.modalidade === 'price' ? `
                 <div id="tab-price" style="display:none;">
                     <div class="table-container">
@@ -190,6 +206,77 @@ const TelaDetalheEmprestimo = {
                                         <td class="cell-money" style="color:var(--danger);">${formatarReais(row.juros)}</td>
                                         <td class="cell-money" style="color:var(--green-400);">${formatarReais(row.amortizacao)}</td>
                                         <td class="cell-money">${formatarReais(row.saldoDevedor)}</td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${emprestimo.modalidade === 'sac' ? `
+                <div id="tab-sac" style="display:none;">
+                    <div class="table-container">
+                        <div class="table-header">
+                            <h3 class="table-title">Simulação de Amortização (Tabela SAC)</h3>
+                            <p style="font-size:13px;color:var(--text-muted);font-weight:400;">
+                                Valores teóricos projetados. Podem divergir caso pagamentos sejam antecipados ou atrasados.
+                            </p>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Mês</th>
+                                        <th class="col-right">Saldo Anterior</th>
+                                        <th class="col-right">Amortização</th>
+                                        <th class="col-right">Juros</th>
+                                        <th class="col-right">Parcela</th>
+                                        <th class="col-right">Saldo Final</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${Calculos.gerarTabelaSAC(emprestimo.valor_principal, emprestimo.taxa_mensal, emprestimo.prazo_meses).map(row => `
+                                    <tr>
+                                        <td style="font-weight:500;">${row.mes}</td>
+                                        <td class="cell-money">${formatarReais(row.saldoAnterior)}</td>
+                                        <td class="cell-money" style="color:var(--green-400);">${formatarReais(row.amortizacao)}</td>
+                                        <td class="cell-money" style="color:var(--danger);">${formatarReais(row.juros)}</td>
+                                        <td class="cell-money" style="font-weight:600;">${formatarReais(row.parcela)}</td>
+                                        <td class="cell-money">${formatarReais(row.novoSaldo)}</td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+
+                ${historico.length > 0 ? `
+                <div id="tab-historico" style="display:none;">
+                    <div class="table-container">
+                        <div class="table-header">
+                            <h3 class="table-title">Histórico de Alterações</h3>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Data/Hora</th>
+                                        <th>Campo Alterado</th>
+                                        <th>Valor Anterior</th>
+                                        <th>Valor Novo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${historico.map(h => `
+                                    <tr>
+                                        <td style="color:var(--text-secondary);">${new Date(h.created_at).toLocaleString('pt-BR')}</td>
+                                        <td style="font-weight:500;">${h.campo_alterado}</td>
+                                        <td style="color:var(--danger);text-decoration:line-through;">${h.valor_anterior || '—'}</td>
+                                        <td style="color:var(--green-400);">${h.valor_novo || '—'}</td>
                                     </tr>
                                     `).join('')}
                                 </tbody>
@@ -267,6 +354,77 @@ const TelaDetalheEmprestimo = {
                         </div>
                     </form>
                 </div>
+            </div>
+
+            <!-- Drawer de Edição -->
+            <div class="drawer-overlay" id="drawer-edicao" onclick="TelaDetalheEmprestimo._fecharDrawerEdicao(event)">
+                <div class="drawer-panel" onclick="event.stopPropagation()">
+                    <div class="drawer-header">
+                        <h2 class="drawer-title">Editar Empréstimo</h2>
+                        <button class="drawer-close" onclick="TelaDetalheEmprestimo._fecharDrawerEdicao()">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <form id="form-edicao" onsubmit="TelaDetalheEmprestimo._handleSalvarEdicao(event)" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+                        <div class="drawer-body">
+                            <div class="alert alert-warning" style="margin-bottom:16px;">
+                                <div class="alert-icon">⚠️</div>
+                                <div class="alert-content">
+                                    <div class="alert-title">Alterações afetam próximos cálculos.</div>
+                                    <div class="alert-description">O histórico de pagamentos e saldo devedor atual não serão alterados iterativamente.</div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" style="color:var(--text-muted);">Devedor (Não Editável)</label>
+                                <input type="text" class="form-input" value="${devedorNome}" disabled>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" style="color:var(--text-muted);">Valor Original (Não Editável)</label>
+                                <input type="text" class="form-input form-input-money" value="${formatarReais(emprestimo.valor_principal)}" disabled>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" style="color:var(--text-muted);">Data de Início (Não Editável)</label>
+                                <input type="date" class="form-input" value="${emprestimo.data_inicio}" disabled>
+                            </div>
+
+                            <hr style="border:0;border-top:1px dashed var(--border-subtle);margin:24px 0;">
+
+                            <div class="form-group">
+                                <label class="form-label">Taxa Mensal (%) <span class="required">*</span></label>
+                                <input type="number" id="edit-taxa" class="form-input form-input-money"
+                                    step="0.01" min="0.01" max="99.99" value="${Number((emprestimo.taxa_mensal * 100).toFixed(2))}" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Modalidade <span class="required">*</span></label>
+                                <select id="edit-modalidade" class="form-select" required onchange="TelaDetalheEmprestimo._toggleEditPrazo()">
+                                    <option value="livre" ${emprestimo.modalidade === 'livre' ? 'selected' : ''}>Livre (Juros Simples)</option>
+                                    <option value="price" ${emprestimo.modalidade === 'price' ? 'selected' : ''}>Price (Parcela Fixa)</option>
+                                    <option value="sac" ${emprestimo.modalidade === 'sac' ? 'selected' : ''}>SAC (Amortização Fixa)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="edit-grupo-prazo" style="display:${emprestimo.modalidade !== 'livre' ? 'block' : 'none'};">
+                                <label class="form-label">Prazo em Meses <span class="required">*</span></label>
+                                <input type="number" id="edit-prazo" class="form-input" min="1" value="${emprestimo.prazo_meses || ''}" ${emprestimo.modalidade !== 'livre' ? 'required' : ''}>
+                                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Atenção: O prazo restante será calculado descontando as parcelas já pagas do prazo total.</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Observações</label>
+                                <textarea id="edit-obs" class="form-textarea" rows="2">${emprestimo.observacoes || ''}</textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="drawer-footer">
+                            <button type="button" class="btn btn-ghost" onclick="TelaDetalheEmprestimo._fecharDrawerEdicao()">Cancelar</button>
+                            <button type="submit" class="btn btn-primary" id="btn-salvar-edicao">Salvar Alterações</button>
+                        </div>
+                    </form>
+                </div>
             </div>`;
 
             if (window.lucide) window.lucide.createIcons();
@@ -282,10 +440,10 @@ const TelaDetalheEmprestimo = {
         btn.classList.add('tab-btn-active');
 
         document.getElementById('tab-pagamentos').style.display = tabId === 'pagamentos' ? 'block' : 'none';
-        const tabPrice = document.getElementById('tab-price');
-        if (tabPrice) {
-            tabPrice.style.display = tabId === 'price' ? 'block' : 'none';
-        }
+        ['price', 'sac', 'historico'].forEach(t => {
+            const el = document.getElementById(`tab-${t}`);
+            if (el) el.style.display = tabId === t ? 'block' : 'none';
+        });
     },
 
     // ============================================
@@ -335,13 +493,29 @@ const TelaDetalheEmprestimo = {
         let saldoAtual = Number(this._emprestimo.saldo_devedor);
 
         if (this._emprestimo.modalidade === 'livre') {
-            const decomp = calcularPagamentoLivre(saldoAtual, this._emprestimo.taxa_mensal, valor);
+            const decomp = Calculos.calcularPagamentoLivre(saldoAtual, this._emprestimo.taxa_mensal, valor);
             juros = decomp.juros;
             amortizacao = decomp.amortizacao;
-        } else {
-            const decomp = calcularParcelaPrice(saldoAtual, this._emprestimo.taxa_mensal, valor);
+        } else if (this._emprestimo.modalidade === 'price') {
+            const decomp = Calculos.calcularParcelaPrice(saldoAtual, this._emprestimo.taxa_mensal, valor);
             juros = decomp.juros;
             amortizacao = decomp.amortizacao;
+        } else if (this._emprestimo.modalidade === 'sac') {
+            const numPagamentos = document.querySelectorAll('#tab-pagamentos tbody tr').length || 0; // heuristic
+            // Let's use prazo_restante carefully
+            const prazoR = this._emprestimo.prazo_restante !== null ? this._emprestimo.prazo_restante : (this._emprestimo.prazo_meses - numPagamentos);
+            const decomp = Calculos.calcularPagamentoSAC(saldoAtual, this._emprestimo.taxa_mensal, valor, Math.max(1, prazoR));
+            juros = decomp.juros;
+            amortizacao = decomp.amortizacao;
+
+            let pIdeal = document.getElementById('prev-parcela-ideal');
+            if(!pIdeal) {
+                pIdeal = document.createElement('div');
+                pIdeal.id = 'prev-parcela-ideal';
+                pIdeal.style = 'margin-top:12px;font-size:12px;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.05);padding-top:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;';
+                painel.appendChild(pIdeal);
+            }
+            pIdeal.innerHTML = `<span>Parcela ideal: <strong style="color:var(--text-primary)">${formatarReais(decomp.parcelaIdeal)}</strong></span><span>Amortização fixa ideal: <strong style="color:var(--green-400)">${formatarReais(decomp.amortizacaoIdeal)}</strong></span>`;
         }
 
         const novoSaldo = Math.max(0, saldoAtual - amortizacao); // Saldo pode aumentar se amort < 0
@@ -404,6 +578,112 @@ const TelaDetalheEmprestimo = {
             App.showToast('Erro ao salvar. Tente novamente.', 'error');
             btn.disabled = false;
             btn.innerHTML = 'Confirmar Pagamento';
+        }
+    },
+
+    // ============================================
+    // DRAWER DE EDIÇÃO
+    // ============================================
+
+    _abrirDrawerEdicao() {
+        const drawer = document.getElementById('drawer-edicao');
+        if(drawer) drawer.classList.add('drawer-open');
+    },
+
+    _fecharDrawerEdicao(event) {
+        if (event && !event.target.classList.contains('drawer-overlay')) return;
+        const drawer = document.getElementById('drawer-edicao');
+        if(drawer) drawer.classList.remove('drawer-open');
+    },
+
+    _toggleEditPrazo() {
+        const mod = document.getElementById('edit-modalidade').value;
+        const divPrazo = document.getElementById('edit-grupo-prazo');
+        const inputPrazo = document.getElementById('edit-prazo');
+        if (mod !== 'livre') {
+            divPrazo.style.display = 'block';
+            inputPrazo.required = true;
+        } else {
+            divPrazo.style.display = 'none';
+            inputPrazo.required = false;
+        }
+    },
+
+    async _handleSalvarEdicao(event) {
+        event.preventDefault();
+
+        const taxaNova = parseFloat(document.getElementById('edit-taxa').value) / 100;
+        const modalidadeNova = document.getElementById('edit-modalidade').value;
+        const prazoNovo = (modalidadeNova !== 'livre') ? parseInt(document.getElementById('edit-prazo').value) : null;
+        const obsNova = document.getElementById('edit-obs').value.trim();
+
+        if (taxaNova <= 0) { App.showToast('Taxa deve ser maior que zero.', 'error'); return; }
+        if (modalidadeNova !== 'livre' && (!prazoNovo || prazoNovo <= 0)) { App.showToast('Prazo obrigatório para modalidade Price e SAC.', 'error'); return; }
+
+        const btn = document.getElementById('btn-salvar-edicao');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin-right:8px;"></span> Salvando...';
+
+        try {
+            const { data: pagamentos } = await window.FinancierDB.from('pagamentos').select('id').eq('emprestimo_id', this._emprestimoId);
+            const parcelasPagas = pagamentos?.length || 0;
+            const prazoRestanteNovo = prazoNovo ? Math.max(0, prazoNovo - parcelasPagas) : null;
+
+            const dadosSalvar = {
+                taxa_mensal: taxaNova,
+                modalidade: modalidadeNova,
+                prazo_meses: prazoNovo,
+                prazo_restante: prazoRestanteNovo,
+                observacoes: obsNova || null
+            };
+
+            await this._registrarHistoricoEdicao(this._emprestimo, dadosSalvar);
+
+            const erroAtualizar = await Emprestimos.atualizar(this._emprestimoId, dadosSalvar);
+            if (!erroAtualizar) throw new Error('Erro ao atualizar. Retorno vazio.');
+
+            App.showToast('Empréstimo atualizado com sucesso!', 'success');
+            if (window.registrarAcao) window.registrarAcao('EMPRESTIMO_EDITADO');
+            this._fecharDrawerEdicao();
+            this.render(this._emprestimoId);
+        } catch (err) {
+            console.error(err);
+            App.showToast('Falha ao salvar edição.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = 'Salvar Alterações';
+        }
+    },
+
+    async _registrarHistoricoEdicao(emprestimoAntigo, dadosNovos) {
+        try {
+            const authResponse = await window.FinancierDB.auth.getUser();
+            const user = authResponse.data?.user;
+            if(!user) return;
+            const registros = [];
+
+            const verificarEAdicionar = (chave, formatarAntigo, formatarNovo) => {
+                if (String(emprestimoAntigo[chave] || '') !== String(dadosNovos[chave] || '')) {
+                    registros.push({
+                        user_id: user.id,
+                        emprestimo_id: emprestimoAntigo.id,
+                        campo_alterado: chave,
+                        valor_anterior: formatarAntigo ? formatarAntigo(emprestimoAntigo[chave]) : String(emprestimoAntigo[chave] || ''),
+                        valor_novo: formatarNovo ? formatarNovo(dadosNovos[chave]) : String(dadosNovos[chave] || '')
+                    });
+                }
+            };
+
+            verificarEAdicionar('taxa_mensal', Formatadores.formatarPercentual, Formatadores.formatarPercentual);
+            verificarEAdicionar('modalidade');
+            verificarEAdicionar('prazo_meses');
+            verificarEAdicionar('prazo_restante');
+            verificarEAdicionar('observacoes');
+
+            if (registros.length > 0) {
+                await window.FinancierDB.from('historico_edicoes').insert(registros);
+            }
+        } catch (e) {
+            console.error('Erro salvo histórico de edições', e);
         }
     }
 };

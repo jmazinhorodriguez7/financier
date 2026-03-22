@@ -66,12 +66,26 @@ const TelaNovoEmprestimo = {
                                     <label class="radio-option ${this._modalidade === 'livre' ? 'radio-option--active' : ''}">
                                         <input type="radio" name="modalidade" value="livre" checked
                                             onchange="TelaNovoEmprestimo._setModalidade('livre')">
-                                        <span>Livre</span>
+                                        <div style="display:flex;flex-direction:column;">
+                                            <span>Livre</span>
+                                            <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">Juros sobre saldo</span>
+                                        </div>
                                     </label>
                                     <label class="radio-option ${this._modalidade === 'price' ? 'radio-option--active' : ''}">
                                         <input type="radio" name="modalidade" value="price"
                                             onchange="TelaNovoEmprestimo._setModalidade('price')">
-                                        <span>Price</span>
+                                        <div style="display:flex;flex-direction:column;">
+                                            <span>Price</span>
+                                            <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">Parcela fixa</span>
+                                        </div>
+                                    </label>
+                                    <label class="radio-option ${this._modalidade === 'sac' ? 'radio-option--active' : ''}">
+                                        <input type="radio" name="modalidade" value="sac"
+                                            onchange="TelaNovoEmprestimo._setModalidade('sac')">
+                                        <div style="display:flex;flex-direction:column;">
+                                            <span>SAC</span>
+                                            <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">Amortização fixa</span>
+                                        </div>
                                     </label>
                                 </div>
                             </div>
@@ -86,8 +100,8 @@ const TelaNovoEmprestimo = {
                                         oninput="TelaNovoEmprestimo._atualizarPreview()">
                                 </div>
                                 <div class="form-group">
-                                    <label class="form-label">PMT (Parcela Calculada)</label>
-                                    <div class="pmt-display" id="pmt-display">
+                                    <label class="form-label" id="label-pmt">PMT (Parcela Calculada)</label>
+                                    <div class="pmt-display" id="pmt-display" style="padding:12px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-md);">
                                         <span style="color:var(--text-muted);">Preencha os campos</span>
                                     </div>
                                 </div>
@@ -120,16 +134,21 @@ const TelaNovoEmprestimo = {
         this._modalidade = valor;
         const priceSection = document.getElementById('price-section');
         const prazoInput = document.getElementById('emp-prazo');
+        const labelPmt = document.getElementById('label-pmt');
 
         if (valor === 'price') {
             priceSection.style.display = 'block';
             prazoInput.required = true;
+            if (labelPmt) labelPmt.textContent = 'PMT = Parcela Fixa Calculada';
+        } else if (valor === 'sac') {
+            priceSection.style.display = 'block';
+            prazoInput.required = true;
+            if (labelPmt) labelPmt.textContent = 'SAC = Parcela Inicial Calculada';
         } else {
             priceSection.style.display = 'none';
             prazoInput.required = false;
         }
 
-        // Atualiza visual dos radio buttons
         document.querySelectorAll('.radio-option').forEach(el => {
             const input = el.querySelector('input');
             el.classList.toggle('radio-option--active', input.checked);
@@ -139,16 +158,31 @@ const TelaNovoEmprestimo = {
     },
 
     _atualizarPreview() {
-        if (this._modalidade !== 'price') return;
+        if (this._modalidade !== 'price' && this._modalidade !== 'sac') return;
 
-        const valor = parseFloat(document.getElementById('emp-valor')?.value);
-        const taxa = parseFloat(document.getElementById('emp-taxa')?.value) / 100;
-        const prazo = parseInt(document.getElementById('emp-prazo')?.value);
+        const valorInput = document.getElementById('emp-valor')?.value;
+        const taxaInput = document.getElementById('emp-taxa')?.value;
+        const prazoInput = document.getElementById('emp-prazo')?.value;
         const pmtDisplay = document.getElementById('pmt-display');
 
+        const valor = parseFloat(valorInput);
+        const taxa = parseFloat(taxaInput) / 100;
+        const prazo = parseInt(prazoInput);
+
         if (valor > 0 && taxa > 0 && prazo > 0) {
-            const pmt = calcularPMT(valor, taxa, prazo);
-            pmtDisplay.innerHTML = `<span class="pmt-value">${formatarReais(pmt)}</span><small style="color:var(--text-muted);">/mês</small>`;
+            if (this._modalidade === 'price') {
+                const pmt = Calculos.calcularPMT(valor, taxa, prazo);
+                pmtDisplay.innerHTML = `<span class="pmt-value">${formatarReais(pmt)}</span><small style="color:var(--text-muted);">/mês</small>`;
+            } else if (this._modalidade === 'sac') {
+                const tabela = Calculos.gerarTabelaSAC(valor, taxa, prazo);
+                const primeira = tabela[0];
+                const ultima = tabela[tabela.length - 1];
+                pmtDisplay.innerHTML = 
+                    `<div style="font-size:14px;color:var(--text-primary);line-height:1.5;">` +
+                    `Amort. fixa: <strong style="color:var(--green-400)">${formatarReais(primeira.amortizacao)}</strong><br>` +
+                    `1ª Parcela: <strong>${formatarReais(primeira.parcela)}</strong><br>` +
+                    `Última: <strong>${formatarReais(ultima.parcela)}</strong></div>`;
+            }
         } else {
             pmtDisplay.innerHTML = `<span style="color:var(--text-muted);">Preencha os campos</span>`;
         }
@@ -162,7 +196,7 @@ const TelaNovoEmprestimo = {
         const taxa = parseFloat(document.getElementById('emp-taxa').value) / 100;
         const data = document.getElementById('emp-data').value;
         const modalidade = this._modalidade;
-        const prazo = modalidade === 'price' ? parseInt(document.getElementById('emp-prazo').value) : null;
+        const prazo = (modalidade === 'price' || modalidade === 'sac') ? parseInt(document.getElementById('emp-prazo').value) : null;
         const obs = document.getElementById('emp-obs').value.trim();
 
         // Validações
@@ -170,8 +204,8 @@ const TelaNovoEmprestimo = {
         if (!valor || valor <= 0) { App.showToast('Valor principal deve ser maior que zero.', 'error'); return; }
         if (!taxa || taxa <= 0 || taxa >= 1) { App.showToast('Taxa deve ser entre 0% e 100%.', 'error'); return; }
         if (!data) { App.showToast('Informe a data de início.', 'error'); return; }
-        if (modalidade === 'price' && (!prazo || prazo <= 0)) {
-            App.showToast('Prazo obrigatório para modalidade Price.', 'error');
+        if ((modalidade === 'price' || modalidade === 'sac') && (!prazo || prazo <= 0)) {
+            App.showToast('Prazo obrigatório para modalidade Price e SAC.', 'error');
             return;
         }
 

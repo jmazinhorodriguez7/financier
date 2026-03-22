@@ -242,7 +242,7 @@ const PdfExportador = {
             contato: e.devedores?.contato || '—',
             valorOriginal: Formatadores.formatarReais(e.valor_principal),
             taxa: Formatadores.formatarPercentual(e.taxa_mensal),
-            modalidade: e.modalidade === 'price' ? 'Price' : 'Livre',
+            modalidade: e.modalidade === 'price' ? 'Price' : (e.modalidade === 'sac' ? 'SAC' : 'Livre'),
             dataInicio: Formatadores.formatarData(e.data_inicio),
             totalPago: Formatadores.formatarReais(e.totalPago),
             totalAmortizado: Formatadores.formatarReais(e.totalAmortizado),

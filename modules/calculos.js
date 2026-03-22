@@ -129,7 +129,82 @@ function executarTestes() {
   console.log('Todos os testes de cálculo passaram.');
 }
 
+// AMORTIZAÇÃO FIXA DO SAC
+function calcularAmortizacaoSAC(saldoDevedor, prazoRestante) {
+  if (prazoRestante <= 0) throw new Error('Prazo restante inválido para SAC.');
+  return arredondar(saldoDevedor / prazoRestante);
+}
+
+// PARCELA DO MÊS NO SAC
+function calcularParcelaSAC(saldoDevedor, taxaMensal, prazoRestante) {
+  const amortizacao = calcularAmortizacaoSAC(saldoDevedor, prazoRestante);
+  const juros = arredondar(saldoDevedor * taxaMensal);
+  const parcela = arredondar(amortizacao + juros);
+  const novoSaldo = arredondar(saldoDevedor - amortizacao);
+  const quitado = novoSaldo <= 0.01;
+  return {
+    amortizacao,
+    juros,
+    parcela,
+    novoSaldo: quitado ? 0 : novoSaldo,
+    quitado
+  };
+}
+
+// REGISTRAR PAGAMENTO MANUAL NO SAC
+function calcularPagamentoSAC(saldoDevedor, taxaMensal, valorPago, prazoRestante) {
+  const juros = arredondar(saldoDevedor * taxaMensal);
+  const amortizacaoIdeal = calcularAmortizacaoSAC(saldoDevedor, prazoRestante);
+  const parcelaIdeal = arredondar(amortizacaoIdeal + juros);
+  const amortizacao = arredondar(valorPago - juros);
+  const novoSaldo = arredondar(saldoDevedor - amortizacao);
+  const quitado = novoSaldo <= 0.01;
+  const alerta = valorPago < juros;
+  return {
+    juros,
+    amortizacao,
+    novoSaldo: quitado ? 0 : novoSaldo,
+    quitado,
+    alerta,
+    parcelaIdeal,
+    amortizacaoIdeal
+  };
+}
+
+// GERAR TABELA SAC COMPLETA
+function gerarTabelaSAC(pv, taxaMensal, prazo) {
+  const amortizacaoFixa = arredondar(pv / prazo);
+  const tabela = [];
+  let saldo = pv;
+  for (let mes = 1; mes <= prazo; mes++) {
+    const juros = arredondar(saldo * taxaMensal);
+    const parcela = arredondar(amortizacaoFixa + juros);
+    const novoSaldo = arredondar(saldo - amortizacaoFixa);
+    tabela.push({
+      mes,
+      saldoAnterior: saldo,
+      amortizacao: amortizacaoFixa,
+      juros,
+      parcela,
+      novoSaldo: novoSaldo <= 0.01 ? 0 : novoSaldo
+    });
+    saldo = novoSaldo <= 0.01 ? 0 : novoSaldo;
+  }
+  return tabela;
+}
+
+function testarSAC() {
+  const tabela = gerarTabelaSAC(12000, 0.02, 4);
+  console.assert(tabela[0].amortizacao === 3000, 'SAC T1: amortização fixa errada');
+  console.assert(tabela[0].juros === 240, 'SAC T1: juros mês 1 errado');
+  console.assert(tabela[0].parcela === 3240, 'SAC T1: parcela mês 1 errada');
+  console.assert(tabela[1].juros === 180, 'SAC T2: juros mês 2 errado');
+  console.assert(tabela[3].novoSaldo === 0, 'SAC T4: saldo final deve ser zero');
+  console.log('Todos os testes SAC passaram.');
+}
+
 executarTestes();
+testarSAC();
 
 // Expor globalmente (compatível com script tags)
 window.Calculos = {
@@ -137,6 +212,9 @@ window.Calculos = {
   calcularPMT,
   calcularParcelaPrice,
   gerarTabelaPrice,
+  calcularParcelaSAC,
+  calcularPagamentoSAC,
+  gerarTabelaSAC,
   validarEntradaPagamento,
   validarEntradaEmprestimo
 };
