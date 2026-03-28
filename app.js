@@ -116,8 +116,7 @@ const App = {
                     TelaDetalheEmprestimo.render(params[0]);
                 } else {
                     this.atualizarHeaderTitulo('Empréstimos');
-                    // O Dashboard atua como a lista principal de empréstimos
-                    TelaDashboard.render();
+                    TelaEmprestimos.render();
                 }
                 break;
             case 'pagamentos':
@@ -126,8 +125,8 @@ const App = {
                     this.atualizarHeaderTitulo('Registrar Recebimento');
                     TelaPagamento.render(params[0]);
                 } else {
-                    this.atualizarHeaderTitulo('Pagamentos');
-                    TelaDashboard.render();
+                    this.atualizarHeaderTitulo('Painel de Pagamentos');
+                    TelaPagamentos.render();
                 }
                 break;
 

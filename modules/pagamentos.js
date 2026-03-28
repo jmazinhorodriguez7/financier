@@ -134,6 +134,25 @@ const Pagamentos = {
             console.error('Erro ao calcular total recebido no mês:', err);
             return 0;
         }
+    },
+
+    /**
+     * Lista todos os pagamentos ordenados pela data e id (para tela de pagamentos)
+     */
+    async listarTodos() {
+        try {
+            const { data, error } = await window.FinancierDB
+                .from('pagamentos')
+                .select('*, emprestimos(devedor_id, valor_principal, devedores(nome))')
+                .order('data_pagamento', { ascending: false })
+                .order('id', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        } catch (err) {
+            console.error('Erro ao listar todos os pagamentos:', err);
+            return [];
+        }
     }
 };
 
