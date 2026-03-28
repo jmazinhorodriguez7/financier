@@ -288,7 +288,7 @@ async function processarEExibirAvisos(emprestimos) {
       cursor: ${av.emprestimoId ? 'pointer' : 'default'};
       transition: transform 0.2s;
     "
-    ${av.emprestimoId ? `onclick="sessionStorage.setItem('_abrir_emprestimo','${av.emprestimoId}'); window.location.hash='#/detalhe-emprestimo'"` : ''}
+    ${av.emprestimoId ? `onclick="sessionStorage.setItem('_abrir_emprestimo','${av.emprestimoId}'); window.location.hash='#/emprestimo/${av.emprestimoId}'"` : ''}
     onmouseover="if(${!!av.emprestimoId}) this.style.transform='translateX(4px)'"
     onmouseout="if(${!!av.emprestimoId}) this.style.transform='translateX(0)'">
       <span style="font-size:24px; flex-shrink:0; margin-top:2px">${av.icone}</span>

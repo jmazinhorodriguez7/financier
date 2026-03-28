@@ -87,67 +87,84 @@ const App = {
         this.atualizarSidebarAtiva(rota);
 
         // Renderiza a tela
-        switch (rota) {
-            case 'login':
-                TelaLogin.render();
-                break;
-            case 'inicio':
-            case 'dashboard':
-                this.atualizarHeaderTitulo('Dashboard');
-                TelaDashboard.render();
-                break;
-            case 'devedores':
-                this.atualizarHeaderTitulo('Devedores');
-                TelaDevedores.render();
-                break;
-            case 'devedor':
-                this.atualizarHeaderTitulo('Perfil do Devedor');
-                if (params[0]) TelaPerfilDevedor.render(params[0]);
-                else window.location.hash = '#/devedores';
-                break;
-            case 'novo-emprestimo':
-                this.atualizarHeaderTitulo('Novo Empréstimo');
-                TelaNovoEmprestimo.render(params[0]);
-                break;
-            case 'emprestimos':
-            case 'emprestimo':
-                if (params[0]) {
-                    this.atualizarHeaderTitulo('Detalhes do Empréstimo');
-                    TelaDetalheEmprestimo.render(params[0]);
-                } else {
-                    this.atualizarHeaderTitulo('Empréstimos');
-                    TelaEmprestimos.render();
-                }
-                break;
-            case 'pagamentos':
-            case 'pagamento':
-                if (params[0]) {
-                    this.atualizarHeaderTitulo('Registrar Recebimento');
-                    TelaPagamento.render(params[0]);
-                } else {
-                    this.atualizarHeaderTitulo('Painel de Pagamentos');
-                    TelaPagamentos.render();
-                }
-                break;
+        try {
+            switch (rota) {
+                case 'login':
+                    TelaLogin.render();
+                    break;
+                case 'inicio':
+                case 'dashboard':
+                    this.atualizarHeaderTitulo('Dashboard');
+                    TelaDashboard.render();
+                    break;
+                case 'devedores':
+                    this.atualizarHeaderTitulo('Devedores');
+                    TelaDevedores.render();
+                    break;
+                case 'devedor':
+                    this.atualizarHeaderTitulo('Perfil do Devedor');
+                    if (params[0]) TelaPerfilDevedor.render(params[0]);
+                    else window.location.hash = '#/devedores';
+                    break;
+                case 'novo-emprestimo':
+                    this.atualizarHeaderTitulo('Novo Empréstimo');
+                    TelaNovoEmprestimo.render(params[0]);
+                    break;
+                case 'emprestimos':
+                case 'emprestimo':
+                case 'detalhe-emprestimo':
+                case 'detalhes-emprestimo':
+                    if (params[0]) {
+                        this.atualizarHeaderTitulo('Detalhes do Empréstimo');
+                        TelaDetalheEmprestimo.render(params[0]);
+                    } else {
+                        this.atualizarHeaderTitulo('Empréstimos');
+                        TelaEmprestimos.render();
+                    }
+                    break;
+                case 'pagamentos':
+                case 'pagamento':
+                    if (params[0]) {
+                        this.atualizarHeaderTitulo('Registrar Recebimento');
+                        TelaPagamento.render(params[0]);
+                    } else {
+                        this.atualizarHeaderTitulo('Painel de Pagamentos');
+                        TelaPagamentos.render();
+                    }
+                    break;
 
-            case 'avisos':
-                this.atualizarHeaderTitulo('Avisos');
-                TelaAvisos.render();
-                break;
-            case 'simulador':
-                this.atualizarHeaderTitulo('Simulador de Empréstimos');
-                TelaSimulador.render();
-                break;
-            case 'exportar':
-                this.atualizarHeaderTitulo('Exportar Relatório');
-                TelaExportarPdf.render();
-                break;
-            case 'configuracoes':
-                this.atualizarHeaderTitulo('Configurações');
-                App.showToast('Configurações em breve.', 'info');
-                break;
-            default:
-                window.location.hash = '#/dashboard';
+                case 'avisos':
+                    this.atualizarHeaderTitulo('Avisos');
+                    TelaAvisos.render();
+                    break;
+                case 'simulador':
+                    this.atualizarHeaderTitulo('Simulador de Empréstimos');
+                    TelaSimulador.render();
+                    break;
+                case 'exportar':
+                    this.atualizarHeaderTitulo('Exportar Relatório');
+                    TelaExportarPdf.render();
+                    break;
+                case 'configuracoes':
+                    this.atualizarHeaderTitulo('Configurações');
+                    App.showToast('Configurações em breve.', 'info');
+                    break;
+                default:
+                    window.location.hash = '#/dashboard';
+            }
+        } catch (error) {
+            console.error('Erro de roteamento:', error);
+            const container = document.getElementById('conteudo-principal');
+            if (container) {
+                container.innerHTML = `
+                    <div style="padding: 40px; text-align: center;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                        <h2 style="color: var(--text-primary);">Erro ao carregar a página</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 24px;">${error.message}</p>
+                        <button class="btn btn-primary" onclick="window.location.reload()">Recarregar App</button>
+                    </div>
+                `;
+            }
         }
     },
 
