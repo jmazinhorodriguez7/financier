@@ -109,10 +109,26 @@ const App = {
                 this.atualizarHeaderTitulo('Novo Empréstimo');
                 TelaNovoEmprestimo.render(params[0]);
                 break;
+            case 'emprestimos':
             case 'emprestimo':
-                this.atualizarHeaderTitulo('Detalhes do Empréstimo');
-                if (params[0]) TelaDetalheEmprestimo.render(params[0]);
-                else window.location.hash = '#/dashboard';
+                if (params[0]) {
+                    this.atualizarHeaderTitulo('Detalhes do Empréstimo');
+                    TelaDetalheEmprestimo.render(params[0]);
+                } else {
+                    this.atualizarHeaderTitulo('Empréstimos');
+                    // O Dashboard atua como a lista principal de empréstimos
+                    TelaDashboard.render();
+                }
+                break;
+            case 'pagamentos':
+            case 'pagamento':
+                if (params[0]) {
+                    this.atualizarHeaderTitulo('Registrar Recebimento');
+                    TelaPagamento.render(params[0]);
+                } else {
+                    this.atualizarHeaderTitulo('Pagamentos');
+                    TelaDashboard.render();
+                }
                 break;
 
             case 'avisos':
