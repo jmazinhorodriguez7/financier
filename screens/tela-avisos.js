@@ -76,18 +76,6 @@ async function inicializarAvisos() {
   try {
     const emprestimos = await buscarEmprestimosParaAvisos();
 
-    // LOG TEMPORÁRIO — remover após confirmar funcionamento
-    console.log('=== DEBUG AVISOS ===');
-    console.log('Total de empréstimos:', emprestimos.length);
-    emprestimos.forEach(e => {
-      console.log(
-        e.devedores?.nome,
-        '| Saldo:', e.saldo_devedor,
-        '| Pagamentos:', e.pagamentos?.length
-      );
-    });
-    console.log('===================');
-
     if (emprestimos.length === 0) {
       document.getElementById('lista-avisos').innerHTML = `
         <div style="text-align:center;padding:60px; color:var(--text-muted)">
@@ -300,8 +288,6 @@ async function processarEExibirAvisos(emprestimos) {
       </div>
     </div>
   `).join('');
-
-  console.log('Avisos gerados e exibidos:', avisos.length);
 }
 
 // Expor funções globais para os botões do HTML (se necessário)

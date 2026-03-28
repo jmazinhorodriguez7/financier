@@ -155,7 +155,7 @@ const App = {
                     break;
                 case 'configuracoes':
                     this.atualizarHeaderTitulo('Configurações');
-                    App.showToast('Configurações em breve.', 'info');
+                    TelaConfiguracoes.render();
                     break;
                 default:
                     window.location.hash = '#/dashboard';

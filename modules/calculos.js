@@ -266,10 +266,13 @@ function calcularProjecaoQuitacao(saldoDevedor, taxaMensal, mediaPagamentos) {
 
 // ALERTA INTELIGENTE DE PAGAMENTO
 function gerarAlertaPagamento(valorPago, juros, amort) {
+  const _fmt = v => window.Formatadores?.formatarReais
+    ? window.Formatadores.formatarReais(v)
+    : `R$ ${(v||0).toFixed(2).replace('.',',')}` ;
   if (valorPago <= 0) return null;
   if (valorPago < juros) return {
     tipo: 'critico',
-    msg: `⚠️ Pagamento abaixo dos juros. O saldo vai crescer ${formatarReais(Math.abs(amort))} este mês.`
+    msg: `⚠️ Pagamento abaixo dos juros. O saldo vai crescer ${_fmt(Math.abs(amort))} este mês.`
   };
   if (amort < juros * 0.3) return {
     tipo: 'atencao',
@@ -281,7 +284,7 @@ function gerarAlertaPagamento(valorPago, juros, amort) {
   };
   return {
     tipo: 'info',
-    msg: `✓ Bom pagamento. Saldo reduzirá ${formatarReais(amort)} este mês.`
+    msg: `✓ Bom pagamento. Saldo reduzirá ${_fmt(amort)} este mês.`
   };
 }
 
