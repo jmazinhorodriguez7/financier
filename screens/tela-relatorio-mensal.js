@@ -663,6 +663,181 @@ function renderizarRanking(ranking, totalJurosAno) {
 
 // Exportar globalmente para o roteador do app.js
 window.TelaRelatorioMensal = { render: inicializarRelatorioMensal };
-window.exportarRelatorioMensalPDF = () => {
-    alert('Função de exportação PDF em desenvolvimento.');
+
+window.exportarRelatorioMensalPDF = function() {
+  const dados = window._relatorioAtual;
+  if (!dados) {
+    App.showToast('Carregue os dados do relatório antes de exportar.', 'error');
+    return;
+  }
+
+  try {
+    const { jsPDF } = window.jspdf;
+    if (!jsPDF) throw new Error('jsPDF não carregado');
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const MESES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    const fmt = v => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v || 0);
+
+    // Cabeçalho
+    doc.setFillColor(6, 15, 7);
+    doc.rect(0, 0, 210, 36, 'F');
+    doc.setTextColor(34, 197, 94);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FINANCIER', 14, 16);
+    doc.setTextColor(241, 245, 249);
+    doc.setFontSize(13);
+    doc.text(`Relatório Mensal de Performance — ${dados.ano}`, 14, 26);
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Gerado em ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })}`, 14, 33);
+
+    // Cards de resumo
+    let y = 48;
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text('RESUMO DO ANO', 14, y);
+    y += 6;
+
+    const kpis = [
+      { label: 'Total Recebido', valor: fmt(dados.totalAnoRecebido) },
+      { label: 'Total de Juros', valor: fmt(dados.totalAnoJuros) },
+      { label: 'Amortização', valor: fmt(dados.totalAnoAmort) },
+      { label: 'Nº de Pagamentos', valor: String(dados.totalPgtos) },
+      { label: 'Média Mensal', valor: fmt(dados.mediaMensal) },
+    ];
+
+    if (dados.melhorMes) {
+      kpis.push({ label: `Melhor Mês (${dados.melhorMes.labelCompleto})`, valor: fmt(dados.melhorMes.totalRecebido) });
+    }
+
+    const colW = 60;
+    kpis.forEach((k, i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const x = 14 + col * colW;
+      const yRow = y + row * 18;
+      doc.setFillColor(243, 244, 246);
+      doc.roundedRect(x, yRow, colW - 4, 14, 2, 2, 'F');
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(k.label, x + 4, yRow + 5);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(k.valor, x + 4, yRow + 11);
+    });
+
+    y += Math.ceil(kpis.length / 3) * 18 + 10;
+
+    // Tabela mensal
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(30, 30, 30);
+    doc.text('DETALHAMENTO MENSAL', 14, y);
+    y += 5;
+
+    const headers = ['Mês', 'Recebido', 'Juros', 'Amortização', 'Pgtos'];
+    const colWidths = [36, 38, 38, 38, 22];
+    const tableLeft = 14;
+
+    // Header da tabela
+    doc.setFillColor(34, 197, 94);
+    doc.rect(tableLeft, y, 172, 7, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    let xH = tableLeft + 2;
+    headers.forEach((h, i) => {
+      doc.text(h, xH, y + 5);
+      xH += colWidths[i];
+    });
+    y += 7;
+
+    dados.meses.forEach((m, idx) => {
+      if (y > 265) {
+        doc.addPage();
+        y = 20;
+      }
+      const bg = idx % 2 === 0 ? [249, 250, 251] : [255, 255, 255];
+      doc.setFillColor(...bg);
+      doc.rect(tableLeft, y, 172, 7, 'F');
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', m.qtdPgtos > 0 ? 'bold' : 'normal');
+      const row = [
+        MESES_NOMES[m.mes],
+        fmt(m.totalRecebido),
+        fmt(m.totalJuros),
+        fmt(m.totalAmort),
+        String(m.qtdPgtos || '—')
+      ];
+      let xR = tableLeft + 2;
+      row.forEach((cell, i) => {
+        doc.setFontSize(8);
+        doc.text(cell, xR, y + 5);
+        xR += colWidths[i];
+      });
+      y += 7;
+    });
+
+    // Linha de total
+    doc.setFillColor(6, 15, 7);
+    doc.rect(tableLeft, y, 172, 8, 'F');
+    doc.setTextColor(34, 197, 94);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    const totalRow = ['TOTAL', fmt(dados.totalAnoRecebido), fmt(dados.totalAnoJuros), fmt(dados.totalAnoAmort), String(dados.totalPgtos)];
+    let xT = tableLeft + 2;
+    totalRow.forEach((cell, i) => {
+      doc.text(cell, xT, y + 5.5);
+      xT += colWidths[i];
+    });
+    y += 14;
+
+    // Ranking de devedores
+    if (dados.ranking && dados.ranking.length > 0) {
+      if (y > 250) { doc.addPage(); y = 20; }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 30, 30);
+      doc.text('RANKING DE DEVEDORES — JUROS PAGOS NO ANO', 14, y);
+      y += 5;
+
+      dados.ranking.slice(0, 10).forEach((r, i) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const medal = i === 0 ? '1°' : i === 1 ? '2°' : i === 2 ? '3°' : `${i+1}°`;
+        doc.setFillColor(i % 2 === 0 ? 243 : 255, i % 2 === 0 ? 244 : 255, i % 2 === 0 ? 246 : 255);
+        doc.rect(14, y, 172, 7, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(medal, 16, y + 5);
+        doc.setTextColor(15, 23, 42);
+        doc.setFont('helvetica', 'normal');
+        doc.text(r.nome, 30, y + 5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(34, 197, 94);
+        doc.text(fmt(r.totalJuros), 160, y + 5, { align: 'right' });
+        y += 7;
+      });
+    }
+
+    // Rodapé
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Financier — Relatório Mensal ${dados.ano} | Página ${p} de ${pageCount}`, 105, 290, { align: 'center' });
+    }
+
+    doc.save(`relatorio-mensal-${dados.ano}.pdf`);
+    App.showToast('PDF exportado com sucesso!', 'success');
+  } catch (err) {
+    console.error('Erro ao exportar PDF:', err);
+    App.showToast('Erro ao gerar PDF. jsPDF não carregado?', 'error');
+  }
 };

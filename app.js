@@ -232,7 +232,7 @@ const App = {
                     <i data-lucide="users"></i>
                     <span>Devedores</span>
                 </a>
-                <a href="#/emprestimo" class="sidebar__item" data-route="emprestimos">
+                <a href="#/emprestimo" class="sidebar__item" data-route="emprestimo">
                     <i data-lucide="file-text"></i>
                     <span>Empréstimos</span>
                 </a>
