@@ -3,15 +3,13 @@
 // =============================================
 
 // Utilizamos formato clássico
-const supabase = window.FinancierDB;
-const { formatarReais } = window.Formatadores;
-// Obs: Se formatarReais não estiver no window, precisamos garantir sua presença, mas vamos assumir padrão
-
-// Removido inicializarAvisos duplicado e quebrado
+// Dependências serão extraídas dentro das funções para evitar erros de carregamento top-level
 
 // MOTOR DE GERAÇÃO DE AVISOS
 async function buscarEmprestimosParaAvisos() {
-  // Primeiro testar sem filtro de user_id (RLS cuida do isolamento)
+  const supabase = window.FinancierDB;
+  if (!supabase) throw new Error('Conexão com Banco de Dados não disponível.');
+
   const { data: emprestimos, error } = await supabase
     .from('emprestimos')
     .select(`
@@ -127,9 +125,9 @@ async function processarEExibirAvisos(emprestimos) {
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
 
-  const fmt = v => new Intl.NumberFormat('pt-BR', {
-    style: 'currency', currency: 'BRL'
-  }).format(v || 0);
+  const formatarReais = window.Formatadores?.formatarReais || (v => `R$ ${v}`);
+  
+  const fmt = v => formatarReais(v);
 
   const fmtData = d => {
     if (!d) return '—';
