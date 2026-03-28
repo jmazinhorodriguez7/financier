@@ -5,6 +5,7 @@
 const TelaDetalheEmprestimo = {
     _emprestimoId: null,
     _emprestimo: null,
+    _tipoPagamento: 'normal',
 
     async render(id) {
         this._emprestimoId = id;
@@ -174,16 +175,20 @@ const TelaDetalheEmprestimo = {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${pagamentos.map(p => `
-                                    <tr>
-                                        <td>${formatarData(p.data_pagamento)}</td>
-                                        <td class="cell-money" style="font-weight:600;color:var(--green-400);">${formatarReais(p.valor_pago)}</td>
-                                        <td class="cell-money" style="color:var(--text-secondary);">${formatarReais(p.valor_juros || 0)}</td>
-                                        <td class="cell-money" style="color:var(--text-secondary);">${formatarReais(p.valor_amortizacao || 0)}</td>
-                                        <td class="cell-money">${formatarReais(p.saldo_apos || 0)}</td>
-                                        <td style="color:var(--text-secondary);">${p.observacoes || '—'}</td>
-                                    </tr>
-                                    `).join('')}
+                                    ${pagamentos.map(p => {
+                                        const tl = { normal: { txt: 'Normal', cor: '#64748b' }, amortizacao: { txt: 'Amort.', cor: '#3b82f6' }, juros: { txt: 'Juros', cor: '#f59e0b' } }[p.tipo_pagamento || 'normal'];
+                                        const badgeTipo = `<span style="background:${tl.cor}22;color:${tl.cor};border:1px solid ${tl.cor}44;border-radius:10px;padding:2px 7px;font-size:10px;font-weight:600;margin-left:6px">${tl.txt}</span>`;
+                                        return `
+                                        <tr>
+                                            <td>${formatarData(p.data_pagamento)}</td>
+                                            <td class="cell-money" style="font-weight:600;color:var(--green-400);">${formatarReais(p.valor_pago)}${badgeTipo}</td>
+                                            <td class="cell-money" style="color:var(--text-secondary);">${formatarReais(p.valor_juros || 0)}</td>
+                                            <td class="cell-money" style="color:var(--text-secondary);">${formatarReais(p.valor_amortizacao || 0)}</td>
+                                            <td class="cell-money">${formatarReais(p.saldo_apos || 0)}</td>
+                                            <td style="color:var(--text-secondary);">${p.observacoes || '—'}</td>
+                                        </tr>
+                                        `;
+                                    }).join('')}
                                 </tbody>
                                 <tfoot>
                                     <tr style="background:var(--bg-surface);font-weight:600;">
@@ -332,12 +337,47 @@ const TelaDetalheEmprestimo = {
                     <form id="form-pagamento" onsubmit="TelaDetalheEmprestimo._handleSalvarPagamento(event)" style="display:flex;flex-direction:column;flex:1;min-height:0;">
                         <div class="drawer-body" style="pointer-events: all;">
                             
+                            <!-- SELEÇÃO DO TIPO DE PAGAMENTO -->
+                            <div class="form-group" style="margin-bottom:16px;">
+                                <label class="form-label" style="margin-bottom:8px; display:block;">Tipo de Pagamento</label>
+                                <div class="tipo-pgto-grid">
+                                    <label class="tipo-pgto-card">
+                                        <input type="radio" name="tipo-pagamento" value="normal" checked onchange="TelaDetalheEmprestimo._atualizarTipoPagamento('normal')">
+                                        <div class="tipo-pgto-inner">
+                                            <span class="tipo-pgto-icone">💳</span>
+                                            <span class="tipo-pgto-nome">Normal</span>
+                                            <span class="tipo-pgto-desc">Juros + Amortização</span>
+                                        </div>
+                                    </label>
+                                    <label class="tipo-pgto-card">
+                                        <input type="radio" name="tipo-pagamento" value="amortizacao" onchange="TelaDetalheEmprestimo._atualizarTipoPagamento('amortizacao')">
+                                        <div class="tipo-pgto-inner">
+                                            <span class="tipo-pgto-icone">📉</span>
+                                            <span class="tipo-pgto-nome">Só Amortização</span>
+                                            <span class="tipo-pgto-desc">Reduz saldo direto</span>
+                                        </div>
+                                    </label>
+                                    <label class="tipo-pgto-card">
+                                        <input type="radio" name="tipo-pagamento" value="juros" onchange="TelaDetalheEmprestimo._atualizarTipoPagamento('juros')">
+                                        <div class="tipo-pgto-inner">
+                                            <span class="tipo-pgto-icone">💰</span>
+                                            <span class="tipo-pgto-nome">Só Juros</span>
+                                            <span class="tipo-pgto-desc">Saldo não muda</span>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="tipo-pgto-aviso" id="aviso-tipo-pgto">
+                                    <span id="texto-aviso-tipo">Valor será decomposto em juros e amortização automaticamente.</span>
+                                </div>
+                            </div>
+
                             <div class="form-group">
                                 <label class="form-label">Valor Recebido (R$) <span class="required">*</span></label>
                                 <input type="number" id="pag-valor" class="form-input form-input-money"
                                     step="0.01" min="0.01" placeholder="0,00" required autocomplete="off"
                                     style="pointer-events: all !important; position: relative; z-index: 10;"
                                     oninput="TelaDetalheEmprestimo._atualizarPreview()">
+                                <span class="campo-hint" id="hint-valor-pgto"></span>
                             </div>
 
                             <div class="form-group">
@@ -350,38 +390,42 @@ const TelaDetalheEmprestimo = {
                                 <textarea id="pag-obs" class="form-textarea" placeholder="Opcional. Ex: Parcela 01, Abatimento, etc." rows="2"></textarea>
                             </div>
 
-                            <!-- Preview em tempo real -->
-                            <div id="painel-previa" style="margin-top:24px;background:rgba(34, 197, 94, 0.05);border:1px solid rgba(34, 197, 94, 0.2);border-radius:var(--radius-md);padding:16px;opacity:0.5;transition:opacity 0.2s;">
-                                <h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-primary);">Preview de Impacto</h4>
-                                
-                                <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
-                                    <span style="color:var(--text-secondary);">Saldo Atual:</span>
-                                    <span>${formatarReais(emprestimo.saldo_devedor)}</span>
-                                </div>
-                                <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;">
-                                    <span style="color:var(--text-secondary);">Juros Abatidos:</span>
-                                    <span id="prev-juros" style="font-weight:500;">R$ 0,00</span>
-                                </div>
-                                <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:13px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.05);">
-                                    <span style="color:var(--text-secondary);">Amortização Real:</span>
-                                    <span id="prev-amort" style="color:var(--green-400);font-weight:600;">R$ 0,00</span>
-                                </div>
-                                <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:600;">
-                                    <span>Novo Saldo Estimado:</span>
-                                    <span id="prev-saldo" style="color:var(--danger);">R$ 0,00</span>
+                            <!-- Preview atualizado para suportar os novos tipos -->
+                            <div class="preview-impacto" id="painel-previa" style="opacity:0.5; transition:opacity 0.2s;">
+                                <div class="preview-titulo">
+                                    <span>Preview de Impacto</span>
+                                    <span class="preview-tipo-badge" id="preview-tipo-badge">Normal</span>
                                 </div>
 
-                                <!-- Alerta amortização negativa -->
-                                <div id="alerta-amortizacao-negativa" class="alert alert-warning" style="display:none;margin-top:16px;padding:12px;">
-                                    <div class="alert-icon">⚠️</div>
-                                    <div class="alert-content">
-                                        <div class="alert-title">Pagamento cobre apenas parte dos juros.</div>
-                                        <div class="alert-description">O saldo devedor irá <strong>aumentar</strong> após este pagamento.</div>
-                                    </div>
+                                <div class="preview-linha">
+                                    <span>Saldo Atual</span>
+                                    <span id="prev-saldo-atual">${formatarReais(emprestimo.saldo_devedor)}</span>
+                                </div>
+                                <div class="preview-linha">
+                                    <span id="label-prev-juros">Juros do Período</span>
+                                    <span id="prev-juros">R$ 0,00</span>
+                                </div>
+                                <div class="preview-linha destaque-amort">
+                                    <span>Amortização</span>
+                                    <span id="prev-amort">R$ 0,00</span>
+                                </div>
+                                <div class="preview-separador"></div>
+                                <div class="preview-linha destaque-saldo">
+                                    <span>Novo Saldo</span>
+                                    <span id="prev-saldo">R$ 0,00</span>
+                                </div>
+                                <div class="preview-linha destaque-economia" id="linha-economia" style="display:none">
+                                    <span>Economia em juros futuros</span>
+                                    <span id="prev-economia">R$ 0,00</span>
                                 </div>
 
-                                <!-- Alerta inteligente -->
+                                <div class="preview-alerta" id="preview-alerta" style="display:none">
+                                    <span id="preview-alerta-texto"></span>
+                                </div>
+                                <!-- Content containers for _atualizarPreview -->
+                                <div id="alerta-amortizacao-negativa" style="display:none;"></div>
                                 <div id="alerta-inteligente" style="display:none;"></div>
+                                <div id="prev-parcela-ideal-container"></div>
                             </div>
                         </div>
                         
@@ -490,18 +534,70 @@ const TelaDetalheEmprestimo = {
     _abrirDrawerPagamento() {
         const drawer = document.getElementById('drawer-pagamento');
         if(drawer) {
+            this._tipoPagamento = 'normal';
+            this._atualizarTipoPagamento('normal');
+            
+            // Resetar form visualmente
+            document.getElementById('pag-valor').value = '';
+            document.getElementById('pag-obs').value = '';
+            document.getElementById('pag-data').value = Datas.hojeISO();
+            const rNormal = document.querySelector('input[name="tipo-pagamento"][value="normal"]');
+            if (rNormal) rNormal.checked = true;
+            
             drawer.classList.add('drawer-open');
             setTimeout(() => document.getElementById('pag-valor')?.focus(), 300);
-            this._atualizarPreview(); // Inicializa o estado do preview vazio
+            this._atualizarPreview();
         }
     },
 
     _fecharDrawer(event) {
-        // Se foi um clique no overlay
         if (event && !event.target.classList.contains('drawer-overlay')) return;
-        
         const drawer = document.getElementById('drawer-pagamento');
         if(drawer) drawer.classList.remove('drawer-open');
+    },
+
+    _atualizarTipoPagamento(tipo) {
+        this._tipoPagamento = tipo;
+        
+        const avisoEl = document.getElementById('aviso-tipo-pgto');
+        const textoEl = document.getElementById('texto-aviso-tipo');
+        const hintEl  = document.getElementById('hint-valor-pgto');
+        const badgeEl = document.getElementById('preview-tipo-badge');
+
+        const saldo = Number(this._emprestimo.saldo_devedor);
+        const taxa = Number(this._emprestimo.taxa_mensal);
+        const jurosDevidos = saldo * taxa;
+
+        const configs = {
+            normal: {
+                aviso: 'O valor será decomposto em juros e amortização automaticamente.',
+                cor: 'var(--border-subtle)',
+                badge: 'Normal',
+                hint: `Juros devidos: ${formatarReais(jurosDevidos)}`
+            },
+            amortizacao: {
+                aviso: '💡 O valor vai integralmente para reduzir o saldo devedor. Os juros continuam pendentes.',
+                cor: '#3b82f6',
+                badge: 'Só Amortização',
+                hint: `Redução bruta do saldo: ${formatarReais(saldo)}`
+            },
+            juros: {
+                aviso: '💡 Apenas os juros do período serão quitados. O saldo devedor não se altera.',
+                cor: '#f59e0b',
+                badge: 'Só Juros',
+                hint: `Juros devidos: ${formatarReais(jurosDevidos)}`
+            }
+        };
+
+        const c = configs[tipo];
+        if (textoEl && avisoEl && hintEl && badgeEl) {
+            textoEl.textContent = c.aviso;
+            avisoEl.style.borderLeftColor = c.cor;
+            badgeEl.textContent = c.badge;
+            hintEl.textContent = c.hint;
+        }
+
+        this._atualizarPreview();
     },
 
     _atualizarPreview() {
@@ -512,76 +608,114 @@ const TelaDetalheEmprestimo = {
 
         const valor = parseFloat(valorInput.value);
         const painel = document.getElementById('painel-previa');
-        const alerta = document.getElementById('alerta-amortizacao-negativa');
+        const elAlerta = document.getElementById('preview-alerta');
+        const elTxtAl  = document.getElementById('preview-alerta-texto');
+        const elEconomia = document.getElementById('linha-economia');
 
         if (!valor || valor <= 0) {
             painel.style.opacity = '0.5';
-            document.getElementById('prev-juros').textContent = 'R$ 0,00';
-            document.getElementById('prev-amort').textContent = 'R$ 0,00';
-            document.getElementById('prev-saldo').textContent = 'R$ 0,00';
-            alerta.style.display = 'none';
+            document.getElementById('prev-juros').textContent = '—';
+            document.getElementById('prev-amort').textContent = '—';
+            document.getElementById('prev-saldo').textContent = '—';
+            if(elAlerta) elAlerta.style.display = 'none';
+            if(elEconomia) elEconomia.style.display = 'none';
             return;
         }
 
         painel.style.opacity = '1';
 
-        let juros = 0;
-        let amortizacao = 0;
-        let saldoAtual = Number(this._emprestimo.saldo_devedor);
+        const tipo = this._tipoPagamento;
+        const saldoAtual = Number(this._emprestimo.saldo_devedor);
+        const taxa = Number(this._emprestimo.taxa_mensal);
+        const jurosDevidos = saldoAtual * taxa;
 
-        if (this._emprestimo.modalidade === 'livre') {
-            const decomp = Calculos.calcularPagamentoLivre(saldoAtual, this._emprestimo.taxa_mensal, valor);
-            juros = decomp.juros;
-            amortizacao = decomp.amortizacao;
-        } else if (this._emprestimo.modalidade === 'price') {
-            const decomp = Calculos.calcularParcelaPrice(saldoAtual, this._emprestimo.taxa_mensal, valor);
-            juros = decomp.juros;
-            amortizacao = decomp.amortizacao;
-        } else if (this._emprestimo.modalidade === 'sac') {
-            const numPagamentos = document.querySelectorAll('#tab-pagamentos tbody tr').length || 0; // heuristic
-            // Let's use prazo_restante carefully
-            const prazoR = this._emprestimo.prazo_restante !== null ? this._emprestimo.prazo_restante : (this._emprestimo.prazo_meses - numPagamentos);
-            const decomp = Calculos.calcularPagamentoSAC(saldoAtual, this._emprestimo.taxa_mensal, valor, Math.max(1, prazoR));
-            juros = decomp.juros;
-            amortizacao = decomp.amortizacao;
+        let juros = 0, amort = 0, novoSaldo = saldoAtual, economia = 0;
+        let alertaTipo = null, alertaMsg = '';
 
-            let pIdeal = document.getElementById('prev-parcela-ideal');
-            if(!pIdeal) {
-                pIdeal = document.createElement('div');
-                pIdeal.id = 'prev-parcela-ideal';
-                pIdeal.style = 'margin-top:12px;font-size:12px;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.05);padding-top:12px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;';
-                painel.appendChild(pIdeal);
+        if (tipo === 'normal') {
+            if (this._emprestimo.modalidade === 'livre') {
+                const dec = Calculos.calcularPagamentoLivre(saldoAtual, taxa, valor);
+                juros = dec.juros; amort = dec.amortizacao; novoSaldo = dec.novoSaldo;
+            } else if (this._emprestimo.modalidade === 'price') {
+                const dec = Calculos.calcularParcelaPrice(saldoAtual, taxa, valor);
+                juros = dec.juros; amort = dec.amortizacao; novoSaldo = dec.novoSaldo;
+            } else if (this._emprestimo.modalidade === 'sac') {
+                const numP = document.querySelectorAll('#tab-pagamentos tbody tr').length || 0;
+                const pR = this._emprestimo.prazo_restante !== null ? this._emprestimo.prazo_restante : (this._emprestimo.prazo_meses - numP);
+                const dec = Calculos.calcularPagamentoSAC(saldoAtual, taxa, valor, Math.max(1, pR));
+                juros = dec.juros; amort = dec.amortizacao; novoSaldo = dec.novoSaldo;
             }
-            pIdeal.innerHTML = `<span>Parcela ideal: <strong style="color:var(--text-primary)">${formatarReais(decomp.parcelaIdeal)}</strong></span><span>Amortização fixa ideal: <strong style="color:var(--green-400)">${formatarReais(decomp.amortizacaoIdeal)}</strong></span>`;
-        }
 
-        const novoSaldo = Math.max(0, saldoAtual - amortizacao); // Saldo pode aumentar se amort < 0
+            if (valor < jurosDevidos) {
+                alertaTipo = 'critico';
+                alertaMsg = `⚠️ Valor abaixo dos juros. O saldo vai crescer ${formatarReais(Math.abs(amort))} neste mês.`;
+            } else if (amort === 0) {
+                alertaTipo = 'atencao';
+                alertaMsg = `ℹ️ Pagamento cobre exatamente os juros. Saldo permanece em ${formatarReais(novoSaldo)}.`;
+            } else if (novoSaldo <= 0) {
+                alertaTipo = 'sucesso';
+                alertaMsg = `🎉 Este pagamento quita o empréstimo!`;
+            } else {
+                alertaTipo = 'info';
+                alertaMsg = `✓ Saldo reduzirá ${formatarReais(amort)} neste mês.`;
+            }
+        } else if (tipo === 'amortizacao') {
+            juros = 0;
+            amort = valor;
+            novoSaldo = Math.max(0, saldoAtual - amort);
+            economia = amort * taxa;
+
+            if (novoSaldo <= 0) {
+                alertaTipo = 'sucesso';
+                alertaMsg = `🎉 Amortização quita o saldo total!`;
+            } else {
+                alertaTipo = 'info';
+                alertaMsg = `✓ Saldo reduz ${formatarReais(amort)} sem quitar juros pendentes.`;
+            }
+        } else if (tipo === 'juros') {
+            juros = Math.min(valor, jurosDevidos);
+            amort = 0;
+            novoSaldo = saldoAtual;
+
+            if (valor > jurosDevidos) {
+                alertaTipo = 'atencao';
+                alertaMsg = `ℹ️ Excedente de ${formatarReais(valor - jurosDevidos)} será ignorado. Use Normal.`;
+            } else if (valor < jurosDevidos) {
+                alertaTipo = 'atencao';
+                alertaMsg = `ℹ️ Juros parcialmente pagos. Falta ${formatarReais(jurosDevidos - valor)}.`;
+            } else {
+                alertaTipo = 'info';
+                alertaMsg = `✓ Juros do período quitados. Saldo não foi alterado.`;
+            }
+        }
 
         document.getElementById('prev-juros').textContent = formatarReais(juros);
-        document.getElementById('prev-amort').textContent = formatarReais(amortizacao);
+        document.getElementById('prev-amort').textContent = formatarReais(amort);
         document.getElementById('prev-saldo').textContent = formatarReais(novoSaldo);
 
-        // Styling da amortização e exibição de alerta
         const amortSpan = document.getElementById('prev-amort');
-        if (amortizacao < 0) {
-            amortSpan.style.color = 'var(--danger)';
-            alerta.style.display = 'flex';
-        } else {
-            amortSpan.style.color = 'var(--green-400)';
-            alerta.style.display = 'none';
+        amortSpan.style.color = amort < 0 ? 'var(--danger)' : 'var(--green-400)';
+
+        if (alertaMsg && elAlerta && elTxtAl) {
+            elAlerta.style.display = 'block';
+            elTxtAl.innerHTML = alertaMsg;
+            elAlerta.className = 'preview-alerta alerta-' + alertaTipo;
+        } else if (elAlerta) {
+            elAlerta.style.display = 'none';
         }
 
-        // Alerta inteligente
-        const alertaInt = document.getElementById('alerta-inteligente');
-        if (alertaInt) {
-            const feedback = Calculos.gerarAlertaPagamento(valor, juros, amortizacao);
-            if (feedback) {
-                alertaInt.style.display = 'block';
-                alertaInt.innerHTML = `<div class="alerta-pagamento ${feedback.tipo}">${feedback.msg}</div>`;
+        if (elEconomia) {
+            if (tipo === 'amortizacao') {
+                elEconomia.style.display = 'flex';
+                document.getElementById('prev-economia').textContent = formatarReais(economia);
             } else {
-                alertaInt.style.display = 'none';
+                elEconomia.style.display = 'none';
             }
         }
+        
+        // Disable old intelligent alert display since we merged them
+        const alertaInt = document.getElementById('alerta-inteligente');
+        if (alertaInt) alertaInt.style.display = 'none';
     },
 
     async _handleSalvarPagamento(event) {
@@ -590,6 +724,7 @@ const TelaDetalheEmprestimo = {
         const valor = parseFloat(document.getElementById('pag-valor').value);
         const data = document.getElementById('pag-data').value;
         const obs = document.getElementById('pag-obs').value.trim();
+        const tipoPagamento = this._tipoPagamento;
 
         if (valor <= 0) {
             App.showToast('Informe o valor recebido.', 'error');
@@ -601,15 +736,53 @@ const TelaDetalheEmprestimo = {
             return;
         }
 
+        const saldoAtual = Number(this._emprestimo.saldo_devedor);
+        const taxa = Number(this._emprestimo.taxa_mensal);
+        const jurosDevidos = saldoAtual * taxa;
+        
+        let valorJuros, valorAmort, saldoApos, obsPrefix = '';
+
+        if (tipoPagamento === 'normal') {
+            if (this._emprestimo.modalidade === 'livre') {
+                const dec = Calculos.calcularPagamentoLivre(saldoAtual, taxa, valor);
+                valorJuros = dec.juros; valorAmort = dec.amortizacao; saldoApos = dec.novoSaldo;
+            } else if (this._emprestimo.modalidade === 'price') {
+                const dec = Calculos.calcularParcelaPrice(saldoAtual, taxa, valor);
+                valorJuros = dec.juros; valorAmort = dec.amortizacao; saldoApos = dec.novoSaldo;
+            } else if (this._emprestimo.modalidade === 'sac') {
+                const numP = document.querySelectorAll('#tab-pagamentos tbody tr').length || 0;
+                const pR = this._emprestimo.prazo_restante !== null ? this._emprestimo.prazo_restante : (this._emprestimo.prazo_meses - numP);
+                const dec = Calculos.calcularPagamentoSAC(saldoAtual, taxa, valor, Math.max(1, pR));
+                valorJuros = dec.juros; valorAmort = dec.amortizacao; saldoApos = dec.novoSaldo;
+            }
+            obsPrefix = '[Normal]';
+        } else if (tipoPagamento === 'amortizacao') {
+            valorJuros = 0;
+            valorAmort = valor;
+            saldoApos = Math.max(0, saldoAtual - valor);
+            obsPrefix = '[Somente Amortização]';
+        } else if (tipoPagamento === 'juros') {
+            valorJuros = Math.min(valor, jurosDevidos);
+            valorAmort = 0;
+            saldoApos = saldoAtual;
+            obsPrefix = '[Somente Juros]';
+        }
+
         const btn = document.getElementById('btn-salvar-pag');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin-right:8px;"></span> Registrando...';
+
+        const obsFinal = [obsPrefix, obs || ''].filter(Boolean).join(' - ');
 
         const dados = {
             emprestimo_id: this._emprestimoId,
             valor_pago: valor,
             data_pagamento: data,
-            observacoes: obs || null
+            observacoes: obsFinal,
+            tipo_pagamento: tipoPagamento,
+            valor_juros: valorJuros,
+            valor_amortizacao: valorAmort,
+            saldo_apos: saldoApos
         };
 
         try {
@@ -617,7 +790,6 @@ const TelaDetalheEmprestimo = {
             if (novo) {
                 App.showToast(`Pagamento de ${formatarReais(valor)} registrado com sucesso!`, 'success');
                 this._fecharDrawer();
-                // Recarrega a tela para atualizar saldo/tabelas
                 this.render(this._emprestimoId); 
             } else {
                 throw new Error('Retorno vazio do banco de dados');

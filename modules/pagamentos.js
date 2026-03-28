@@ -58,14 +58,24 @@ const Pagamentos = {
             const saldo = Number(emprestimo.saldo_devedor);
             const valorPago = Number(dados.valor_pago);
 
-            let result;
-            if (emprestimo.modalidade === 'price') {
-                const pmt = window.Calculos.calcularPMT(Number(emprestimo.valor_principal), taxa, emprestimo.prazo_meses);
-                result = window.Calculos.calcularParcelaPrice(saldo, taxa, pmt);
-            } else if (emprestimo.modalidade === 'sac') {
-                result = window.Calculos.calcularPagamentoSAC(saldo, taxa, valorPago, emprestimo.prazo_restante || emprestimo.prazo_meses);
+            let result = {};
+            
+            // Se os valores já vieram calculados do frontend e o tipo foi informado, utiliza-os
+            if (dados.tipo_pagamento && typeof dados.valor_juros !== 'undefined') {
+                result.juros = Number(dados.valor_juros);
+                result.amortizacao = Number(dados.valor_amortizacao);
+                result.novoSaldo = Number(dados.saldo_apos);
+                result.quitado = result.novoSaldo <= 0.01;
             } else {
-                result = window.Calculos.calcularPagamentoLivre(saldo, taxa, valorPago);
+                // Comportamento original: calcula
+                if (emprestimo.modalidade === 'price') {
+                    const pmt = window.Calculos.calcularPMT(Number(emprestimo.valor_principal), taxa, emprestimo.prazo_meses);
+                    result = window.Calculos.calcularParcelaPrice(saldo, taxa, pmt);
+                } else if (emprestimo.modalidade === 'sac') {
+                    result = window.Calculos.calcularPagamentoSAC(saldo, taxa, valorPago, emprestimo.prazo_restante || emprestimo.prazo_meses);
+                } else {
+                    result = window.Calculos.calcularPagamentoLivre(saldo, taxa, valorPago);
+                }
             }
 
             // Insere pagamento
@@ -77,6 +87,7 @@ const Pagamentos = {
                 valor_juros: result.juros,
                 valor_amortizacao: result.amortizacao,
                 saldo_apos: result.novoSaldo,
+                tipo_pagamento: dados.tipo_pagamento || 'normal',
                 observacoes: dados.observacoes || null
             };
 
