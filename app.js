@@ -137,6 +137,14 @@ const App = {
                     this.atualizarHeaderTitulo('Avisos');
                     TelaAvisos.render();
                     break;
+                case 'relatorio-mensal':
+                    this.atualizarHeaderTitulo('Relatório Mensal');
+                    TelaRelatorioMensal.render();
+                    break;
+                case 'rentabilidade':
+                    this.atualizarHeaderTitulo('Índice de Rentabilidade');
+                    TelaRentabilidade.render();
+                    break;
                 case 'simulador':
                     this.atualizarHeaderTitulo('Simulador de Empréstimos');
                     TelaSimulador.render();
@@ -186,6 +194,8 @@ const App = {
             'novo-emprestimo': 'emprestimos', 'emprestimo': 'emprestimos',
             'pagamento': 'pagamentos',
             'avisos': 'avisos',
+            'relatorio-mensal': 'relatorio-mensal',
+            'rentabilidade': 'rentabilidade',
             'simulador': 'simulador',
             'exportar': 'exportar',
             'configuracoes': 'configuracoes'
@@ -234,6 +244,14 @@ const App = {
                     <i data-lucide="bell"></i>
                     <span style="flex:1;">Avisos</span>
                     <span class="nav-badge" id="badge-avisos" style="display:none;">0</span>
+                </a>
+                <a href="#/relatorio-mensal" class="sidebar__item" data-route="relatorio-mensal">
+                    <i data-lucide="trending-up"></i>
+                    <span>Relatório Mensal</span>
+                </a>
+                <a href="#/rentabilidade" class="sidebar__item" data-route="rentabilidade">
+                    <i data-lucide="line-chart"></i>
+                    <span>Rentabilidade</span>
                 </a>
                 <a href="#/simulador" class="sidebar__item" data-route="simulador">
                     <i data-lucide="calculator"></i>
