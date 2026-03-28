@@ -11,22 +11,37 @@ const TelaDevedores = {
         app.innerHTML = this._renderSkeleton();
 
         try {
-            const devedores = await Devedores.listar();
+            // Nova query completa para devedores, empréstimos e pagamentos
+            const { data: devedores, error } = await window.FinancierDB
+                .from('devedores')
+                .select(`
+                    id,
+                    nome,
+                    contato,
+                    created_at,
+                    emprestimos (
+                        id,
+                        valor_principal,
+                        saldo_devedor,
+                        taxa_mensal,
+                        data_inicio,
+                        prazo_meses,
+                        modalidade,
+                        status,
+                        pagamentos (
+                            data_pagamento,
+                            valor_pago,
+                            valor_juros,
+                            valor_amortizacao,
+                            saldo_apos
+                        )
+                    )
+                `)
+                .order('nome', { ascending: true });
 
-            // Enriquece com dados de empréstimos
-            for (const d of devedores) {
-                try {
-                    const emps = await Emprestimos.listarPorDevedor(d.id);
-                    const ativos = emps.filter(e => e.status === 'ativo');
-                    d._empAtivos = ativos.length;
-                    d._totalDevido = ativos.reduce((s, e) => s + Number(e.saldo_devedor || 0), 0);
-                } catch {
-                    d._empAtivos = 0;
-                    d._totalDevido = 0;
-                }
-            }
+            if (error) throw error;
 
-            this._devedores = devedores;
+            this._devedores = devedores || [];
             this._renderConteudo();
         } catch (err) {
             console.error('Erro ao carregar devedores:', err);
@@ -67,7 +82,10 @@ const TelaDevedores = {
                 </button>
             </div>
 
-            ${filtrados.length > 0 ? this._renderTabela(filtrados) : this._renderVazio()}
+            ${filtrados.length > 0 ? this._renderListaCards(filtrados) : this._renderVazio()}
+
+            <!-- Rodapé com Totais -->
+            ${filtrados.length > 0 ? this._renderRodape(filtrados) : ''}
 
             <!-- Modal Novo Devedor -->
             ${this._renderModalNovo()}
@@ -79,45 +97,188 @@ const TelaDevedores = {
         setTimeout(() => document.getElementById('busca-devedor')?.focus(), 100);
     },
 
-    _renderTabela(devedores) {
-        const rows = devedores.map(d => `
-            <tr class="clickable" onclick="window.location.hash='#/devedor/${d.id}'">
-                <td>
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <div class="sidebar__avatar" style="width:32px;height:32px;font-size:12px;">${Formatadores.obterInicial(d.nome)}</div>
-                        <span style="font-weight:500;">${d.nome}</span>
+    _renderListaCards(devedores) {
+        const fmt = v => new Intl.NumberFormat('pt-BR', {
+            style: 'currency', currency: 'BRL'
+        }).format(v || 0);
+
+        const cards = devedores.map(dev => {
+            const proxParcela = this._calcularProximaParcelaDevedor(dev);
+            const temAtivo = proxParcela.qtdEmprestimosAtivos > 0;
+
+            return `
+            <div class="devedor-card" onclick="window.location.hash='#/devedor/${dev.id}'">
+                <div class="devedor-info">
+                    <div class="devedor-avatar">
+                        ${Formatadores.obterInicial(dev.nome)}
                     </div>
-                </td>
-                <td style="color:var(--text-secondary);">${d.contato || '—'}</td>
-                <td style="text-align:center;">${d._empAtivos}</td>
-                <td class="cell-money">${formatarReais(d._totalDevido)}</td>
-                <td>
-                    <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
-                        <button class="btn btn-ghost btn-sm btn-icon" onclick="TelaDevedores._abrirModalEditar('${d.id}')" title="Editar">
-                            <i data-lucide="pencil" style="width:16px;height:16px;"></i>
-                        </button>
-                        <button class="btn btn-ghost btn-sm btn-icon" onclick="window.location.hash='#/devedor/${d.id}'" title="Ver perfil">
-                            <i data-lucide="eye" style="width:16px;height:16px;"></i>
-                        </button>
+                    <div>
+                        <span class="devedor-nome">${dev.nome}</span>
+                        <span class="devedor-contato">${dev.contato || '—'}</span>
                     </div>
-                </td>
-            </tr>`).join('');
+                </div>
+
+                ${temAtivo ? `
+                    <div class="devedor-proxima-parcela">
+                        <div class="proxparcela-valor">
+                            ${fmt(proxParcela.valor)}
+                        </div>
+                        <div class="proxparcela-info">
+                            <span class="proxparcela-data">
+                                📅 ${proxParcela.dataFormatada}
+                            </span>
+                            <span class="proxparcela-badge"
+                                style="background:${proxParcela.cor}22;
+                                       color:${proxParcela.cor};
+                                       border:1px solid ${proxParcela.cor}55">
+                                ${proxParcela.label}
+                            </span>
+                        </div>
+                        ${proxParcela.qtdEmprestimosAtivos > 1 ? `
+                            <span class="proxparcela-multi">
+                                Soma de ${proxParcela.qtdEmprestimosAtivos} empréstimos ativos
+                            </span>
+                        ` : ''}
+                    </div>
+                ` : `
+                    <div class="devedor-proxima-parcela inativo">
+                        <span class="proxparcela-vazio">Sem empréstimos ativos</span>
+                    </div>
+                `}
+            </div>`;
+        }).join('');
+
+        return `<div class="devedor-card-container">${cards}</div>`;
+    },
+
+    _renderRodape(devedores) {
+        const fmt = v => new Intl.NumberFormat('pt-BR', {
+            style: 'currency', currency: 'BRL'
+        }).format(v || 0);
+
+        // Calcular total geral das próximas parcelas
+        const totalTodasParcelas = devedores.reduce((acc, dev) => {
+            const p = this._calcularProximaParcelaDevedor(dev);
+            return acc + p.valor;
+        }, 0);
+
+        const qtdAtrasados = devedores.filter(dev => {
+            const p = this._calcularProximaParcelaDevedor(dev);
+            return p.status === 'atrasado';
+        }).length;
 
         return `
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Nome</th>
-                        <th>Contato</th>
-                        <th style="text-align:center;">Emp. Ativos</th>
-                        <th class="col-right">Total Devido</th>
-                        <th style="width:100px;">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>
+        <div class="devedores-rodape">
+            <div class="rodape-info">
+                <span>${devedores.length} devedor(es)</span>
+                ${qtdAtrasados > 0 ? `
+                    <span style="color:#ef4444; font-weight:600;">
+                        ${qtdAtrasados} em atraso
+                    </span>
+                ` : ''}
+            </div>
+            <div class="rodape-total">
+                <span class="rodape-total-label">Total próximas parcelas</span>
+                <span class="rodape-total-valor">${fmt(totalTodasParcelas)}</span>
+            </div>
         </div>`;
+    },
+
+    _calcularProximaParcelaDevedor(devedor) {
+        // Pegar apenas empréstimos ativos
+        const ativos = (devedor.emprestimos || [])
+            .filter(e => e.status === 'ativo');
+
+        if (ativos.length === 0) {
+            return {
+                valor: 0,
+                data: null,
+                status: 'sem-emprestimo',
+                label: 'Sem ativos',
+                cor: '#64748b',
+                qtdEmprestimosAtivos: 0
+            };
+        }
+
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+
+        let totalProximaParcela = 0;
+        let datasMaisProximas = [];
+
+        ativos.forEach(emp => {
+            const pagamentos = (emp.pagamentos || []).sort(
+                (a, b) => new Date(b.data_pagamento) - new Date(a.data_pagamento)
+            );
+            const ultimo = pagamentos[0];
+
+            // Calcular data do próximo vencimento
+            const base = ultimo
+                ? new Date(ultimo.data_pagamento + 'T00:00:00')
+                : new Date(emp.data_inicio + 'T00:00:00');
+            const proxVenc = new Date(base);
+            proxVenc.setDate(proxVenc.getDate() + 30);
+            proxVenc.setHours(0, 0, 0, 0);
+
+            datasMaisProximas.push(proxVenc);
+
+            // Calcular valor estimado da parcela conforme modalidade
+            const taxa = Number(emp.taxa_mensal || 0);
+            const saldo = Number(emp.saldo_devedor || 0);
+            const juros = Math.round(saldo * taxa * 100) / 100;
+
+            let valorParcela = 0;
+
+            if (emp.modalidade === 'price' && emp.prazo_meses) {
+                const n = Number(emp.prazo_meses);
+                const pmt = (saldo * taxa * Math.pow(1 + taxa, n)) / (Math.pow(1 + taxa, n) - 1);
+                valorParcela = Math.round(pmt * 100) / 100;
+            } else if (emp.modalidade === 'sac' && emp.prazo_meses) {
+                const pgtosFeit = pagamentos.length;
+                const prazoRest = Number(emp.prazo_meses) - pgtosFeit;
+                const amort = prazoRest > 0 ? Math.round((saldo / prazoRest) * 100) / 100 : saldo;
+                valorParcela = Math.round((amort + juros) * 100) / 100;
+            } else {
+                valorParcela = juros;
+            }
+
+            totalProximaParcela += valorParcela;
+        });
+
+        const dataMaisProxima = datasMaisProximas.sort((a, b) => a - b)[0];
+
+        const diffDias = Math.floor((dataMaisProxima - hoje) / (1000 * 60 * 60 * 24));
+
+        let status, label, cor;
+
+        if (diffDias < 0) {
+            status = 'atrasado';
+            label = `${Math.abs(diffDias)}d em atraso`;
+            cor = '#ef4444';
+        } else if (diffDias === 0) {
+            status = 'hoje';
+            label = 'Vence hoje';
+            cor = '#f59e0b';
+        } else if (diffDias <= 7) {
+            status = 'breve';
+            label = `Vence em ${diffDias}d`;
+            cor = '#eab308';
+        } else {
+            status = 'normal';
+            label = `Em ${diffDias} dias`;
+            cor = '#22c55e';
+        }
+
+        return {
+            valor: Math.round(totalProximaParcela * 100) / 100,
+            data: dataMaisProxima,
+            dataFormatada: dataMaisProxima.toLocaleDateString('pt-BR'),
+            diffDias,
+            status,
+            label,
+            cor,
+            qtdEmprestimosAtivos: ativos.length
+        };
     },
 
     _renderVazio() {

@@ -15,19 +15,30 @@ const TelaDashboard = {
 
         // Carrega dados em paralelo
         try {
-            const [emprestimos, totalEmprestado, recebidoMes, ativos, pagRecentes] = await Promise.all([
-                Emprestimos.listarAtivos(),
+            // Emprestimos ativos enriquecidos para o fluxo
+            const { data: emprestimosFull, error: errEmp } = await window.FinancierDB
+                .from('emprestimos')
+                .select('*, devedores(nome, contato), pagamentos(*)')
+                .eq('status', 'ativo')
+                .order('created_at', { ascending: false });
+
+            if (errEmp) throw errEmp;
+
+            const [totalEmprestado, recebidoMes, ativos, pagRecentes] = await Promise.all([
                 Emprestimos.calcularTotalEmprestado(),
                 Pagamentos.totalRecebidoNoMes(),
                 Emprestimos.contarAtivos(),
                 Pagamentos.listarRecentes(5)
             ]);
 
-            // Busca último pagamento de cada empréstimo
-            const emprestimosComUltimoPg = await this._enriquecerComUltimoPagamento(emprestimos);
+            // Busca último pagamento de cada empréstimo para a tabela
+            const emprestimosComUltimoPg = await this._enriquecerComUltimoPagamento(emprestimosFull);
 
-            // Conta atrasados (sem pagamento há mais de 30 dias)
+            // Conta atrasados
             const emAtraso = this._contarAtrasados(emprestimosComUltimoPg);
+
+            // Cálculo do Fluxo do Mês
+            const fluxo = await this._calcularFluxoMes(emprestimosFull);
 
             this._dados = {
                 emprestimos: emprestimosComUltimoPg,
@@ -35,7 +46,8 @@ const TelaDashboard = {
                 recebidoMes,
                 ativos,
                 emAtraso,
-                pagRecentes
+                pagRecentes,
+                fluxo
             };
 
             app.innerHTML = this._renderDashboard();
@@ -109,6 +121,9 @@ const TelaDashboard = {
                 ${this._renderKPI('Ativos', d.ativos.toString(), 'file-text', 'yellow')}
                 ${this._renderKPI('Em Atraso', d.emAtraso.toString(), 'alert-triangle', 'red', d.emAtraso > 0)}
             </div>
+
+            <!-- Painel de Fluxo do Mês -->
+            ${this._renderPainelFluxo()}
 
             <!-- Conteúdo principal: Tabela + Painel lateral -->
             <div class="dashboard-grid">
