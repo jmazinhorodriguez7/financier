@@ -233,6 +233,136 @@ const TelaDashboard = {
     },
 
     /**
+     * Painel de Fluxo Mensal
+     */
+    _renderPainelFluxo() {
+        const fluxo = this._dados.fluxo;
+        const fmt = v => new Intl.NumberFormat('pt-BR', {
+            style: 'currency', currency: 'BRL'
+        }).format(v || 0);
+
+        return `
+        <div class="fluxo-mes-wrapper">
+            <div class="fluxo-mes-header">
+                <span class="fluxo-mes-titulo">Fluxo do Mês</span>
+                <span class="fluxo-mes-periodo">
+                    📅 ${fluxo.mes.charAt(0).toUpperCase() + fluxo.mes.slice(1)}
+                </span>
+            </div>
+
+            <div class="fluxo-mes-grid">
+                <!-- A Receber -->
+                <div class="fluxo-card">
+                    <span class="fluxo-label">Total a Receber</span>
+                    <span class="fluxo-valor">${fmt(fluxo.totalAReceber)}</span>
+                    <span class="fluxo-sub">
+                        ${this._dados.ativos} parcela(s) esperada(s)
+                    </span>
+                </div>
+
+                <!-- Já Recebido -->
+                <div class="fluxo-card destaque-positivo">
+                    <span class="fluxo-label">Já Recebido</span>
+                    <span class="fluxo-valor positivo">${fmt(fluxo.totalRecebido)}</span>
+                    <span class="fluxo-sub">
+                        ${fluxo.qtdPgtosMes} pagamento(s) no mês
+                    </span>
+                </div>
+
+                <!-- Diferença -->
+                <div class="fluxo-card ${fluxo.diferenca > 0 ? 'destaque-pendente' : 'destaque-quitado'}">
+                    <span class="fluxo-label">Ainda a Receber</span>
+                    <span class="fluxo-valor ${fluxo.diferenca > 0 ? 'pendente' : 'zerado'}">
+                        ${fmt(Math.max(0, fluxo.diferenca))}
+                    </span>
+                    <span class="fluxo-sub">
+                        ${fluxo.diferenca <= 0
+                            ? '✅ Todas as parcelas recebidas!'
+                            : `${fluxo.percRecebido}% do mês recebido`}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Barra de progresso do mês -->
+            <div class="fluxo-progresso-wrapper">
+                <div class="fluxo-progresso-info">
+                    <span>Progresso do recebimento</span>
+                    <span>${fluxo.percRecebido}%</span>
+                </div>
+                <div class="fluxo-barra-bg">
+                    <div class="fluxo-barra-fill" style="width:${fluxo.percRecebido}%"></div>
+                </div>
+            </div>
+        </div>`;
+    },
+
+    /**
+     * Calcula o fluxo do mês atual
+     */
+    async _calcularFluxoMes(emprestimos) {
+        const hoje = new Date();
+        const mesAtual = hoje.getMonth();
+        const anoAtual = hoje.getFullYear();
+
+        let totalAReceber = 0;
+        const ativos = emprestimos.filter(e => e.status === 'ativo');
+
+        ativos.forEach(emp => {
+            const pagamentos = (emp.pagamentos || []).sort(
+                (a, b) => new Date(b.data_pagamento) - new Date(a.data_pagamento)
+            );
+            
+            const taxa = Number(emp.taxa_mensal || 0);
+            const saldo = Number(emp.saldo_devedor || 0);
+            const juros = Math.round(saldo * taxa * 100) / 100;
+
+            let valorParcela = 0;
+
+            if (emp.modalidade === 'price' && emp.prazo_meses) {
+                const n = Number(emp.prazo_meses);
+                const pmt = (saldo * taxa * Math.pow(1 + taxa, n)) / (Math.pow(1 + taxa, n) - 1);
+                valorParcela = Math.round(pmt * 100) / 100;
+            } else if (emp.modalidade === 'sac' && emp.prazo_meses) {
+                const pgtosFeit = pagamentos.length;
+                const prazoRest = Number(emp.prazo_meses) - pgtosFeit;
+                const amort = prazoRest > 0 ? Math.round((saldo / prazoRest) * 100) / 100 : saldo;
+                valorParcela = Math.round((amort + juros) * 100) / 100;
+            } else {
+                valorParcela = juros;
+            }
+
+            totalAReceber += valorParcela;
+        });
+
+        totalAReceber = Math.round(totalAReceber * 100) / 100;
+
+        const todosPagamentos = emprestimos.flatMap(e => e.pagamentos || []);
+        const pgtosMes = todosPagamentos.filter(p => {
+            if (!p.data_pagamento) return false;
+            const d = new Date(p.data_pagamento.includes('T') ? p.data_pagamento : p.data_pagamento + 'T00:00:00');
+            return d.getMonth() === mesAtual && d.getFullYear() === anoAtual;
+        });
+
+        const totalRecebido = Math.round(
+            pgtosMes.reduce((acc, p) => acc + Number(p.valor_pago || 0), 0) * 100
+        ) / 100;
+
+        const diferenca = Math.round((totalAReceber - totalRecebido) * 100) / 100;
+        const percRecebido = totalAReceber > 0 
+            ? Math.round((totalRecebido / totalAReceber) * 100) 
+            : (totalRecebido > 0 ? 100 : 0);
+
+        return {
+            totalAReceber,
+            totalRecebido,
+            diferenca,
+            percRecebido,
+            qtdPgtosMes: pgtosMes.length,
+            mes: hoje.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+        };
+    },
+
+    /**
      * Verifica se empréstimo está atrasado
      */
     _isAtrasado(emp) {
