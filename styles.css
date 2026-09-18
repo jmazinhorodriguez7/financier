@@ -4608,4 +4608,61 @@ html, body {
 .rent-score-sub { font-size: 12px; font-weight: 600; text-align: center; }
 .rent-metricas-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .badge-ativo { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
-\n
+
+/* =============================================
+   Pills de Filtro & Gestão Avançada
+   ============================================= */
+.filter-pill {
+  background: var(--bg-surface, #1e293b);
+  border: 1px solid var(--border-subtle, #334155);
+  color: var(--text-secondary, #94a3b8);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filter-pill:hover {
+  background: var(--bg-hover, #334155);
+  color: var(--text-primary, #f8fafc);
+}
+
+.filter-pill.active {
+  background: var(--primary, #3b82f6);
+  border-color: var(--primary, #3b82f6);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.filter-pill.danger.active {
+  background: #ef4444;
+  border-color: #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.filter-pill.warning.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.input-padrao {
+  background: var(--bg-input, #0f172a);
+  border: 1px solid var(--border-subtle, #334155);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text-primary, #f8fafc);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+}
+
+.input-padrao:focus {
+  border-color: var(--primary, #3b82f6);
+}

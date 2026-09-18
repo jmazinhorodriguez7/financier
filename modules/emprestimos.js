@@ -29,7 +29,7 @@ const Emprestimos = {
         try {
             const { data, error } = await window.FinancierDB
                 .from('emprestimos')
-                .select('*, devedores(nome, contato)')
+                .select('*, devedores(nome, contato), pagamentos(id, valor_pago, valor_juros, valor_amortizacao, data_pagamento)')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;

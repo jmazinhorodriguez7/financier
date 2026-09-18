@@ -137,6 +137,11 @@ const App = {
                     this.atualizarHeaderTitulo('Avisos');
                     TelaAvisos.render();
                     break;
+                case 'previsao':
+                case 'forecast':
+                    this.atualizarHeaderTitulo('Previsão de Caixa');
+                    TelaPrevisao.render();
+                    break;
                 case 'relatorio-mensal':
                     this.atualizarHeaderTitulo('Relatório Mensal');
                     TelaRelatorioMensal.render();
@@ -193,6 +198,7 @@ const App = {
             'devedores': 'devedores', 'devedor': 'devedores',
             'novo-emprestimo': 'emprestimos', 'emprestimo': 'emprestimos',
             'pagamento': 'pagamentos',
+            'previsao': 'previsao',
             'avisos': 'avisos',
             'relatorio-mensal': 'relatorio-mensal',
             'rentabilidade': 'rentabilidade',
@@ -235,6 +241,10 @@ const App = {
                 <a href="#/emprestimo" class="sidebar__item" data-route="emprestimo">
                     <i data-lucide="file-text"></i>
                     <span>Empréstimos</span>
+                </a>
+                <a href="#/previsao" class="sidebar__item" data-route="previsao">
+                    <i data-lucide="calendar"></i>
+                    <span>Previsão (Forecast)</span>
                 </a>
                 <a href="#/pagamento" class="sidebar__item" data-route="pagamentos">
                     <i data-lucide="coins"></i>

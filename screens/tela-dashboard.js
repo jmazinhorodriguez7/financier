@@ -1,5 +1,5 @@
 // ============================================
-// tela-dashboard.js — Dashboard Principal
+// tela-dashboard.js — Dashboard Principal (Gestão & Risco)
 // ============================================
 
 const TelaDashboard = {
@@ -11,11 +11,11 @@ const TelaDashboard = {
      */
     async render() {
         const app = document.getElementById('conteudo-principal');
+        if (!app) return;
         app.innerHTML = this._renderSkeleton();
 
-        // Carrega dados em paralelo
         try {
-            // Emprestimos ativos enriquecidos para o fluxo
+            // Emprestimos ativos enriquecidos para o fluxo e risco
             const { data: emprestimosFull, error: errEmp } = await window.FinancierDB
                 .from('emprestimos')
                 .select('*, devedores(nome, contato), pagamentos(*)')
@@ -40,6 +40,9 @@ const TelaDashboard = {
             // Cálculo do Fluxo do Mês
             const fluxo = await this._calcularFluxoMes(emprestimosFull);
 
+            // Cálculo de Gestão de Risco & Concentração de Carteira
+            const risco = this._calcularRiscoConcentracao(emprestimosFull, totalEmprestado);
+
             this._dados = {
                 emprestimos: emprestimosComUltimoPg,
                 totalEmprestado,
@@ -47,11 +50,13 @@ const TelaDashboard = {
                 ativos,
                 emAtraso,
                 pagRecentes,
-                fluxo
+                fluxo,
+                risco
             };
 
             app.innerHTML = this._renderDashboard();
             if (window.lucide) window.lucide.createIcons();
+            this._renderGraficoConcentracao();
         } catch (err) {
             console.error('Erro ao carregar dashboard:', err);
             app.innerHTML = `
@@ -64,6 +69,44 @@ const TelaDashboard = {
                     </div>
                 </div>`;
         }
+    },
+
+    /**
+     * Calcula Concentração de Carteira por Devedor e Rentabilidade Média Ponderada
+     */
+    _calcularRiscoConcentracao(emprestimos, totalEmprestado) {
+        if (!totalEmprestado || totalEmprestado <= 0) {
+            return { devedores: [], taxaMediaPonderada: 0, maiorConcentracao: null };
+        }
+
+        const mapaDevedor = {};
+        let somaPonderadaTaxa = 0;
+
+        emprestimos.forEach(emp => {
+            const nome = emp.devedores?.nome || 'Desconhecido';
+            const saldo = Number(emp.saldo_devedor || 0);
+            const taxa = Number(emp.taxa_mensal || 0);
+
+            if (!mapaDevedor[nome]) {
+                mapaDevedor[nome] = { nome, saldoTotal: 0, percentual: 0 };
+            }
+            mapaDevedor[nome].saldoTotal += saldo;
+            somaPonderadaTaxa += (saldo * taxa);
+        });
+
+        const lista = Object.values(mapaDevedor).map(d => {
+            d.percentual = Math.round((d.saldoTotal / totalEmprestado) * 1000) / 10;
+            return d;
+        }).sort((a, b) => b.saldoTotal - a.saldoTotal);
+
+        const taxaMediaPonderada = (somaPonderadaTaxa / totalEmprestado);
+        const maiorConcentracao = lista[0] || null;
+
+        return {
+            devedores: lista,
+            taxaMediaPonderada,
+            maiorConcentracao
+        };
     },
 
     /**
@@ -98,7 +141,6 @@ const TelaDashboard = {
         const hoje = new Date();
         return emprestimos.filter(emp => {
             if (!emp.ultimo_pagamento) {
-                // Se nunca pagou, verifica se início foi há mais de 30 dias
                 const inicio = new Date(emp.data_inicio);
                 return Datas.diasEntreDatas(inicio, hoje) > 30;
             }
@@ -111,22 +153,42 @@ const TelaDashboard = {
      */
     _renderDashboard() {
         const d = this._dados;
+        const risco = d.risco;
 
         return `
         <div class="content-wrapper">
-            <!-- KPIs -->
+            <!-- Header Rápido -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h1 class="page-title" style="margin:0 0 4px 0;">Painel de Gestão & Rentabilidade</h1>
+                    <span style="font-size:13px; color:var(--text-secondary);">Visão estratégica do capital alocado e rentabilidade da carteira.</span>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <a href="#/previsao" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:8px;">
+                        <i data-lucide="calendar" style="width:16px;height:16px;color:var(--primary);"></i> Previsão (Forecast)
+                    </a>
+                    <a href="#/novo-emprestimo" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:8px;">
+                        <i data-lucide="plus" style="width:16px;height:16px;"></i> Novo Empréstimo
+                    </a>
+                </div>
+            </div>
+
+            <!-- KPIs Estratégicos -->
             <div class="kpi-grid">
                 ${this._renderKPI('Total em Carteira', formatarReais(d.totalEmprestado), 'dollar-sign', 'green')}
                 ${this._renderKPI('Recebido no Mês', formatarReais(d.recebidoMes), 'trending-up', 'blue')}
-                ${this._renderKPI('Ativos', d.ativos.toString(), 'file-text', 'yellow')}
+                ${this._renderKPI('Rentabilidade Média', formatarPercentual(risco.taxaMediaPonderada) + '/mês', 'pie-chart', 'yellow')}
                 ${this._renderKPI('Em Atraso', d.emAtraso.toString(), 'alert-triangle', 'red', d.emAtraso > 0)}
             </div>
 
             <!-- Painel de Fluxo do Mês -->
             ${this._renderPainelFluxo()}
 
+            <!-- Seção de Risco & Concentração de Carteira -->
+            ${this._renderPainelRisco()}
+
             <!-- Conteúdo principal: Tabela + Painel lateral -->
-            <div class="dashboard-grid">
+            <div class="dashboard-grid" style="margin-top:24px;">
                 <!-- Tabela de empréstimos -->
                 <div class="dashboard-main">
                     ${this._renderTabelaEmprestimos()}
@@ -153,6 +215,108 @@ const TelaDashboard = {
             <div class="kpi-label">${label}</div>
             <div class="kpi-value ${destaque ? 'text-negative' : ''}">${valor}</div>
         </div>`;
+    },
+
+    /**
+     * Painel de Gestão de Risco e Concentração
+     */
+    _renderPainelRisco() {
+        const risco = this._dados.risco;
+        const maior = risco.maiorConcentracao;
+        const alertaExposicao = maior && maior.percentual > 25
+            ? `<div style="background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.3); border-radius:6px; padding:10px 14px; display:flex; align-items:center; gap:10px; margin-top:14px;">
+                 <i data-lucide="shield-alert" style="width:18px;height:18px;color:#ef4444;flex-shrink:0;"></i>
+                 <span style="font-size:12px; color:#fca5a5;">
+                   <b>Alerta de Concentração:</b> ${maior.nome} concentra <b>${maior.percentual}%</b> de todo o capital emprestado (${formatarReais(maior.saldoTotal)}).
+                 </span>
+               </div>`
+            : '';
+
+        return `
+        <div class="card" style="padding: 20px; margin-top:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+                <div>
+                    <h3 style="margin:0; font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="pie-chart" style="width:18px;height:18px;color:var(--primary);"></i>
+                        Concentração de Carteira & Exposição de Risco
+                    </h3>
+                    <span style="font-size:12px; color:var(--text-secondary);">Distribuição do seu capital entre os devedores ativos</span>
+                </div>
+                <div style="font-size:13px; color:var(--text-secondary);">
+                    Devedores com saldo: <b>${risco.devedores.length}</b>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px; align-items:center;">
+                <!-- Gráfico Donut -->
+                <div style="height: 180px; position:relative;">
+                    <canvas id="grafico-concentracao"></canvas>
+                </div>
+
+                <!-- Lista dos Maiores Devedores -->
+                <div>
+                    <div style="font-size:12px; font-weight:600; text-transform:uppercase; color:var(--text-secondary); margin-bottom:10px;">
+                        Maiores Alocações
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        ${risco.devedores.slice(0, 4).map(d => `
+                            <div>
+                                <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:500; margin-bottom:2px;">
+                                    <span>${d.nome}</span>
+                                    <span>${d.percentual}% <span style="color:var(--text-secondary); font-size:11px;">(${formatarReais(d.saldoTotal)})</span></span>
+                                </div>
+                                <div style="width:100%; height:5px; background:var(--bg-secondary); border-radius:3px; overflow:hidden;">
+                                    <div style="width:${d.percentual}%; height:100%; background:${d.percentual > 25 ? '#ef4444' : 'var(--primary)'};"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${alertaExposicao}
+                </div>
+            </div>
+        </div>`;
+    },
+
+    _renderGraficoConcentracao() {
+        const canvas = document.getElementById('grafico-concentracao');
+        if (!canvas || !window.Chart) return;
+
+        const risco = this._dados.risco;
+        const labels = risco.devedores.map(d => d.nome);
+        const data = risco.devedores.map(d => d.saldoTotal);
+
+        const cores = [
+            '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'
+        ];
+
+        new Chart(canvas, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{
+                    data,
+                    backgroundColor: cores.slice(0, labels.length),
+                    borderWidth: 2,
+                    borderColor: '#1e293b'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { boxWidth: 12, color: '#94a3b8', font: { size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.label}: R$ ${ctx.raw.toLocaleString('pt-BR')}`
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
     },
 
     /**
@@ -505,10 +669,12 @@ const TelaDashboard = {
             this._ordenacao.direcao = 'asc';
         }
 
-        // Re-renderiza somente a tabela
         const app = document.getElementById('conteudo-principal');
-        app.innerHTML = this._renderDashboard();
-        if (window.lucide) window.lucide.createIcons();
+        if (app) {
+            app.innerHTML = this._renderDashboard();
+            if (window.lucide) window.lucide.createIcons();
+            this._renderGraficoConcentracao();
+        }
     },
 
     /**
